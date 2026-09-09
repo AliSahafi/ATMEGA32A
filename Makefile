@@ -9,10 +9,13 @@
 SRC ?= main.cpp
 MODULES = gpio
 
-.PHONY: main build flash $(MODULES) int-1mhz int-2mhz int-4mhz int-8mhz ext-xtal
+.PHONY: main build flash clean $(MODULES) int-1mhz int-2mhz int-4mhz int-8mhz ext-xtal
 
 main: build flash
 	avrdude -c usbasp -p m32 -B 8 -U lfuse:w:0xff:m -U hfuse:w:0xd9:m
+
+clean:
+	rm -f main.bin main.hex
 
 build:
 	avr-g++ -mmcu=atmega32 -Os -Dnullptr=0 -o main.bin $(SRC)
