@@ -10,7 +10,10 @@ a.out
 .DS_Store
 
 # VS Code / IDE
-.vscode/
+.vscode/*
+!.vscode/c_cpp_properties.json
+!.vscode/extensions.json
+!.vscode/tasks.json
 .cache/
 compile_commands.json
 

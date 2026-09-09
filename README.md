@@ -45,7 +45,18 @@ choco install avr-gcc avrdude make
 
 ---
 
-### Step 2: Build & Flash
+### Step 2: VS Code Setup (Recommended)
+
+1. Download and install [Visual Studio Code](https://code.visualstudio.com/).
+2. When you open this folder in VS Code, install the recommended extensions (or search for them in the Extensions tab `Ctrl+Shift+X` / `Cmd+Shift+X`):
+   - **C/C++** (`ms-vscode.cpptools`) — for code navigation, syntax highlighting, and auto-completion.
+   - **Makefile Tools** (`ms-vscode.makefile-tools`) — for Makefile syntax and integration.
+3. **IntelliSense is pre-configured:** The included `.vscode/c_cpp_properties.json` ensures that AVR-specific headers (`<avr/io.h>`, `<util/delay.h>`, etc.) resolve cleanly without red squiggly error marks.
+4. **One-Click Build & Flash:** Press `Ctrl+Shift+B` (or `Cmd+Shift+B` on macOS) to build and flash directly from within VS Code.
+
+---
+
+### Step 3: Build & Flash (Command Line)
 
 Navigate to the project directory and run:
 ```bash
