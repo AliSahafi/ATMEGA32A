@@ -13,39 +13,58 @@ The driver is split into **independent modules**, organized under [`drivers/`](d
 
 ## Getting Started
 
-### Step 1: Install the AVR Toolchain
+### Step 1: Clone or Download the Repository
+
+You can obtain the project repository in either of two ways:
+
+- **Option A — Clone with Git (Recommended, Optional):**  
+  Installing Git is optional, but strongly recommended. It allows you to easily pull future course updates, bug fixes, and new driver modules as they are released using `git pull`:
+  ```bash
+  git clone https://github.com/AliSahafi/ATMEGA32A.git
+  cd ATMEGA32A
+  ```
+- **Option B — Download ZIP:**  
+  If you prefer not to use Git, download the repository as a ZIP archive from the green **Code** button on the [GitHub repository](https://github.com/AliSahafi/ATMEGA32A), then extract it to your working folder.
+
+---
+
+### Step 2: Install the AVR Toolchain & Git (Optional)
 
 #### Ubuntu / Debian
-To install the AVR GCC toolchain, `avrdude`, and `make`:
+To install the AVR GCC toolchain, `avrdude`, `make`, and optionally `git`:
 ```bash
-sudo apt-get update && sudo apt-get install -y gcc-avr binutils-avr avr-libc avrdude make
+sudo apt-get update && sudo apt-get install -y gcc-avr binutils-avr avr-libc avrdude make git
 ```
+*(You can omit `git` if you do not plan to use Git).*
 
 #### macOS
 Using [Homebrew](https://brew.sh/):
 ```bash
 brew tap osx-cross/avr
-brew install avr-gcc avrdude make
+brew install avr-gcc avrdude make git
 ```
+*(You can omit `git` if you do not plan to use Git).*
 
 #### Windows
 Using [Scoop](https://scoop.sh/) (Recommended):
 ```powershell
-scoop install avr-gcc avrdude make
+scoop install avr-gcc avrdude make git
 ```
 
 Or using [Chocolatey](https://chocolatey.org/):
 ```powershell
-choco install avr-gcc avrdude make
+choco install avr-gcc avrdude make git
 ```
 
+> 💡 **Git on Windows:** Alternatively, you can download the official Git installer from [git-scm.com](https://git-scm.com/).
+> 
 > 💡 **Windows USBasp Users:** If using a USBasp programmer, Windows will not recognize it out of the box. You have two options:
 > 1. **Use the bundled driver (easiest):** Extract [`USBasp-win-driver-x86-x64-v3.0.7.zip`](USBasp-win-driver-x86-x64-v3.0.7.zip) included in this repo and run `InstallDriver.exe` (matching your CPU architecture).
 > 2. **Use Zadig:** Download [Zadig](https://zadig.akeo.ie/), plug in your USBasp, and replace its driver with `libusb-win32`.
 
 ---
 
-### Step 2: VS Code Setup (Recommended)
+### Step 3: VS Code Setup (Recommended)
 
 1. Download and install [Visual Studio Code](https://code.visualstudio.com/).
 2. When you open this folder in VS Code, install the recommended extensions (or search for them in the Extensions tab `Ctrl+Shift+X` / `Cmd+Shift+X`):
@@ -53,10 +72,11 @@ choco install avr-gcc avrdude make
    - **Makefile Tools** (`ms-vscode.makefile-tools`) — for Makefile syntax and integration.
 3. **IntelliSense is pre-configured:** The included `.vscode/c_cpp_properties.json` ensures that AVR-specific headers (`<avr/io.h>`, `<util/delay.h>`, etc.) resolve cleanly without red squiggly error marks.
 4. **One-Click Build & Flash:** Press `Ctrl+Shift+B` (or `Cmd+Shift+B` on macOS) to build and flash directly from within VS Code.
+5. *(Optional)* **Source Control:** If Git is installed, VS Code's built-in Source Control tab (`Ctrl+Shift+G` / `Cmd+Shift+G`) lets you pull updates and view changes with a single click.
 
 ---
 
-### Step 3: Build & Flash (Command Line)
+### Step 4: Build & Flash (Command Line)
 
 Navigate to the project directory and run:
 ```bash
