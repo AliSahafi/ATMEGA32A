@@ -17,11 +17,11 @@ public:
                                   uint8_t dir) {
     volatile uint8_t *actual_ddr = &ddr;
 
-    // Auto-correct if user accidentally passed PORT instead of DDR
-    if (actual_ddr == &PORTA) actual_ddr = &DDRA;
-    else if (actual_ddr == &PORTB) actual_ddr = &DDRB;
-    else if (actual_ddr == &PORTC) actual_ddr = &DDRC;
-    else if (actual_ddr == &PORTD) actual_ddr = &DDRD;
+    // Auto-correct if user passed PORT or PIN instead of DDR
+    if (actual_ddr == &PORTA || actual_ddr == &PINA) actual_ddr = &DDRA;
+    else if (actual_ddr == &PORTB || actual_ddr == &PINB) actual_ddr = &DDRB;
+    else if (actual_ddr == &PORTC || actual_ddr == &PINC) actual_ddr = &DDRC;
+    else if (actual_ddr == &PORTD || actual_ddr == &PIND) actual_ddr = &DDRD;
 
     volatile uint8_t *port = actual_ddr + 1; // In AVR, PORT is always DDR + 1
 
@@ -49,34 +49,60 @@ public:
   }
 
   static inline void write(volatile uint8_t &port, uint8_t pin, uint8_t state) {
+    volatile uint8_t *actual_port = &port;
+
+    // Auto-correct if user passed DDR or PIN instead of PORT
+    if (actual_port == &DDRA || actual_port == &PINA) actual_port = &PORTA;
+    else if (actual_port == &DDRB || actual_port == &PINB) actual_port = &PORTB;
+    else if (actual_port == &DDRC || actual_port == &PINC) actual_port = &PORTC;
+    else if (actual_port == &DDRD || actual_port == &PIND) actual_port = &PORTD;
+
     if (pin == ALL) {
-      port = state;
+      *actual_port = state;
     } else {
       if (state == HIGH) {
-        port |= (1 << pin);
+        *actual_port |= (1 << pin);
       } else {
-        port &= ~(1 << pin);
+        *actual_port &= ~(1 << pin);
       }
     }
   }
 
   static inline void write(volatile uint8_t &port, uint8_t value) {
-    port = value;
+    write(port, ALL, value);
   }
 
   static inline uint8_t read(volatile uint8_t &pin_reg, uint8_t pin) {
+    volatile uint8_t *actual_pin = &pin_reg;
+
+    // Auto-correct if user passed PORT or DDR instead of PIN
+    if (actual_pin == &PORTA || actual_pin == &DDRA) actual_pin = &PINA;
+    else if (actual_pin == &PORTB || actual_pin == &DDRB) actual_pin = &PINB;
+    else if (actual_pin == &PORTC || actual_pin == &DDRC) actual_pin = &PINC;
+    else if (actual_pin == &PORTD || actual_pin == &DDRD) actual_pin = &PIND;
+
     if (pin == ALL)
-      return pin_reg;
-    return (pin_reg & (1 << pin)) ? HIGH : LOW;
+      return *actual_pin;
+    return (*actual_pin & (1 << pin)) ? HIGH : LOW;
   }
 
-  static inline uint8_t read(volatile uint8_t &pin_reg) { return pin_reg; }
+  static inline uint8_t read(volatile uint8_t &pin_reg) {
+    return read(pin_reg, ALL);
+  }
 
   static inline void toggle(volatile uint8_t &port, uint8_t pin) {
+    volatile uint8_t *actual_port = &port;
+
+    // Auto-correct if user passed DDR or PIN instead of PORT
+    if (actual_port == &DDRA || actual_port == &PINA) actual_port = &PORTA;
+    else if (actual_port == &DDRB || actual_port == &PINB) actual_port = &PORTB;
+    else if (actual_port == &DDRC || actual_port == &PINC) actual_port = &PORTC;
+    else if (actual_port == &DDRD || actual_port == &PIND) actual_port = &PORTD;
+
     if (pin == ALL) {
-      port ^= 0xFF;
+      *actual_port ^= 0xFF;
     } else {
-      port ^= (1 << pin);
+      *actual_port ^= (1 << pin);
     }
   }
 };

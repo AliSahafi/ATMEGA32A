@@ -122,16 +122,18 @@ Include only the modules you use — unused peripherals then cost no flash and n
 
 ### GPIO
 
+> 💡 **Beginner-Friendly:** You can pass `PORTx`, `PINx`, or `DDRx` to any function interchangeably (e.g. `GPIO.read(PORTC, PC0)` or `GPIO.read(PINC, PC0)`). The driver automatically selects the correct hardware register under the hood.
+
 | Method | Description |
 |---|---|
-| `GPIO.setDirection(DDRx, pin, OUTPUT)` | Set single pin direction (`INPUT`, `OUTPUT`, `INPUT_PULLUP`) |
-| `GPIO.setDirection(DDRx, ALL, INPUT_PULLUP)` | Set whole port direction |
+| `GPIO.setDirection(PORTx, pin, OUTPUT)` | Set single pin direction (`INPUT`, `OUTPUT`, `INPUT_PULLUP`) |
+| `GPIO.setDirection(PORTx, ALL, INPUT_PULLUP)` | Set whole port direction |
 | `GPIO.write(PORTx, pin, HIGH/LOW)` | Write single pin |
 | `GPIO.write(PORTx, ALL, 0xF0)` | Write raw byte to whole port |
 | `GPIO.write(PORTx, 0xF0)` | Shorthand whole-port write |
-| `GPIO.read(PINx, pin)` | Read single pin — returns `HIGH` or `LOW` |
-| `GPIO.read(PINx, ALL)` | Read whole port — returns 0–255 |
-| `GPIO.read(PINx)` | Shorthand whole-port read |
+| `GPIO.read(PORTx, pin)` | Read single pin — returns `HIGH` or `LOW` (`PINx` also accepted) |
+| `GPIO.read(PORTx, ALL)` | Read whole port — returns 0–255 |
+| `GPIO.read(PORTx)` | Shorthand whole-port read |
 | `GPIO.toggle(PORTx, pin)` | Toggle single pin |
 | `GPIO.toggle(PORTx, ALL)` | Toggle whole port |
 
@@ -143,14 +145,15 @@ Include only the modules you use — unused peripherals then cost no flash and n
 #include "drivers/gpio/gpio.hpp"
 
 int main() {
-  GPIO.setDirection(DDRD, PD2, INPUT_PULLUP); // Button input with pull-up
-  GPIO.setDirection(DDRC, PC0, OUTPUT);       // LED output
+  // Push button S11 on PD2, LED D0 on PB0 (active-low: LOW = ON)
+  GPIO.setDirection(PORTD, PD2, INPUT_PULLUP);
+  GPIO.setDirection(PORTB, PB0, OUTPUT);
 
   while (true) {
-    if (GPIO.read(PIND, PD2) == LOW) {
-      GPIO.write(PORTC, PC0, HIGH);           // Turn ON when button pressed
+    if (GPIO.read(PORTD, PD2) == LOW) {
+      GPIO.write(PORTB, PB0, LOW);  // Turn ON when button pressed
     } else {
-      GPIO.write(PORTC, PC0, LOW);
+      GPIO.write(PORTB, PB0, HIGH); // Turn OFF when released
     }
   }
 }

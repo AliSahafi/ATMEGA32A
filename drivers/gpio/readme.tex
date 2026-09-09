@@ -1,6 +1,7 @@
 \documentclass[11pt,a4paper]{article}
-\usepackage[margin=2.5cm]{geometry}
+\usepackage[margin=2.0cm]{geometry}
 \usepackage[T1]{fontenc}
+\usepackage{amsmath}
 \usepackage{booktabs}
 \usepackage{xcolor}
 \usepackage{listings}
@@ -8,7 +9,7 @@
 
 \emergencystretch=2em
 \definecolor{codebg}{gray}{0.95}
-\lstset{language=C++, basicstyle=\ttfamily\small, keywordstyle=\color{blue!70!black},
+\lstset{language=C++, basicstyle=\ttfamily\footnotesize, keywordstyle=\color{blue!70!black},
   commentstyle=\color{green!50!black}\itshape, backgroundcolor=\color{codebg},
   frame=single, rulecolor=\color{black!20}, breaklines=true, showstringspaces=false,
   tabsize=2, columns=flexible}
@@ -50,9 +51,11 @@ the standard way to wire buttons.
 
 \section{API reference}
 
-The driver auto-corrects a common mistake: if you accidentally pass
-\texttt{PORTx} where \texttt{DDRx} is expected, \texttt{setDirection} fixes
-it for you.
+The driver is beginner-friendly and auto-corrects register names: you can pass
+\texttt{PORTx}, \texttt{DDRx}, or \texttt{PINx} interchangeably to any function
+(\texttt{setDirection}, \texttt{write}, \texttt{read}, \texttt{toggle}). The driver
+automatically maps to the correct hardware register under the hood, skipping register
+confusion.
 
 \begin{center}
 \small
@@ -60,14 +63,14 @@ it for you.
 \toprule
 \textbf{Method} & \textbf{Description} \\
 \midrule
-\texttt{GPIO.setDirection(DDRx, pin, OUTPUT)} & Set single pin (\texttt{INPUT}, \texttt{OUTPUT}, \texttt{INPUT\_PULLUP}) \\
-\texttt{GPIO.setDirection(DDRx, ALL, INPUT\_PULLUP)} & Set whole port direction \\
+\texttt{GPIO.setDirection(PORTx, pin, OUTPUT)} & Set single pin (\texttt{INPUT}, \texttt{OUTPUT}, \texttt{INPUT\_PULLUP}) \\
+\texttt{GPIO.setDirection(PORTx, ALL, INPUT\_PULLUP)} & Set whole port direction \\
 \texttt{GPIO.write(PORTx, pin, HIGH/LOW)} & Write single pin \\
 \texttt{GPIO.write(PORTx, ALL, 0xF0)} & Write raw byte to whole port \\
 \texttt{GPIO.write(PORTx, 0xF0)} & Shorthand whole-port write \\
-\texttt{GPIO.read(PINx, pin)} & Read single pin --- returns \texttt{HIGH} or \texttt{LOW} \\
-\texttt{GPIO.read(PINx, ALL)} & Read whole port --- returns 0--255 \\
-\texttt{GPIO.read(PINx)} & Shorthand whole-port read \\
+\texttt{GPIO.read(PORTx, pin)} & Read single pin --- returns \texttt{HIGH} or \texttt{LOW} \\
+\texttt{GPIO.read(PORTx, ALL)} & Read whole port --- returns 0--255 \\
+\texttt{GPIO.read(PORTx)} & Shorthand whole-port read \\
 \texttt{GPIO.toggle(PORTx, pin)} & Toggle single pin \\
 \texttt{GPIO.toggle(PORTx, ALL)} & Toggle whole port \\
 \bottomrule
@@ -77,33 +80,48 @@ it for you.
 \textbf{Constants:} \texttt{INPUT}, \texttt{OUTPUT}, \texttt{INPUT\_PULLUP},
 \texttt{HIGH}, \texttt{LOW}, \texttt{ALL} (see Module 0).
 
-\section{Example: button-controlled LED}
+\newpage
+\section{Example: Button-controlled LED}
 
-\paragraph{Wiring.}
+\paragraph{Board Hardware.} All components are already integrated on the development board:
 \begin{itemize}
-  \item Push button between \textbf{PD2} and \textbf{GND} (internal pull-up used, no external resistor needed).
-  \item LED + 330\,$\Omega$ resistor from \textbf{PC0} to GND (follows the button).
-  \item LED + 330\,$\Omega$ resistor from \textbf{PC1} to GND (blinks continuously).
+  \item \textbf{8 LEDs (D0--D7) on PORTB (PB0--PB7):} Wired active-low (cathodes to MCU pins). Driving a pin \texttt{LOW} turns the LED ON; driving it \texttt{HIGH} turns it OFF.
+  \item \textbf{8 DIP Switches (S0--S7) on PORTC (PC0--PC7):} Connected directly to GND when closed. There are \textbf{no external pull-up resistors}, so \texttt{INPUT\_PULLUP} must be enabled in software.
+  \item \textbf{2 Push Buttons on PD2 and PD6:} Button S11 is connected to \textbf{PD2} and button S10 is connected to \textbf{PD6}. Pressing either button connects the pin to GND (\texttt{LOW}).
 \end{itemize}
 
 \paragraph{Build \& flash.} \texttt{make gpio}
 
 \lstinputlisting{example.cpp}
 
-Note that reading uses \texttt{PIND} (the input register) while writing uses
-\texttt{PORTC} (the output latch) --- mixing these up is the classic GPIO bug.
+\newpage
+\section{Laboratory Tasks}
 
-\section{Exercises}
+\subsection*{Task 1: Reading Switches and Driving LEDs (20 min)}
+\begin{itemize}
+  \item \textbf{Task 1.1:} Configure \texttt{PORTC} as \texttt{INPUT\_PULLUP} and \texttt{PORTB} as \texttt{OUTPUT}. Write a loop that continuously reads the 8 DIP switches on \texttt{PORTC} and displays their status directly on the 8 LEDs on \texttt{PORTB}.
+  \item \textbf{Task 1.2:} Modify the configuration of \texttt{PORTC} to plain \texttt{INPUT} (disabling the internal pull-up resistors). Observe and explain what happens when a switch is left open (floating input).
+\end{itemize}
 
-\begin{enumerate}
-  \item Change the program so the LED on PC0 \emph{toggles} once per button
-        press instead of following it. (Hint: you must detect the
-        \emph{edge} --- remember the previous button state in a variable.)
-  \item Connect 8 LEDs to PORTC and write a ``running light'' (Knight Rider)
-        pattern using the whole-port \texttt{GPIO.write(PORTC, value)} overload.
-  \item Why does a button need a pull-up at all? Remove
-        \texttt{INPUT\_PULLUP} (use plain \texttt{INPUT}), run the program and
-        explain what you observe.
-\end{enumerate}
+\subsection*{Task 2: 4-Bit Binary to Seven-Segment Decoder (20 min)}
+Develop a function to capture a 4-bit binary input from the switches and display the corresponding decimal digit on the seven-segment display:
+\begin{itemize}
+  \item \textbf{Input Capture:} Read the lower 4 bits of the DIP switches on \texttt{PORTC} (\texttt{PC0}--\texttt{PC3}) using bitwise masking (\texttt{value \& 0x0F}).
+  \item \textbf{Value Mapping:} Convert the 4-bit binary value (0--9) into the corresponding segment pattern for the active-low common-anode display (refer to the segment encoding table from the lecture slides).
+  \item \textbf{Output to Display:} Send the mapped segment byte to \texttt{PORTB} to illuminate the digit on the display.
+  \item \textbf{Example:} If the switches are set to binary \texttt{0101}, the seven-segment display should show the digit ``5''.
+\end{itemize}
+
+\subsection*{Task 3: Bidirectional Running Light with Push-Button Control (25 min)}
+Apply shift operators (\texttt{<<}, \texttt{>>}), bitwise logic (\texttt{\&}, \texttt{\textasciitilde}), and \texttt{\_delay\_ms()} to create an animated running light on \texttt{PORTB}:
+\begin{itemize}
+  \item \textbf{Task 3.1 (Shift Animation):} Use a single active bit (e.g., \texttt{0x01}) and shift it left and right across the 8 LEDs on \texttt{PORTB} (\texttt{PB0} $\leftrightarrow$ \texttt{PB7}) using shift operators (\texttt{<<} and \texttt{>>}) and a delay of \texttt{\_delay\_ms(100)}. Invert the pattern (\texttt{\textasciitilde pattern}) when writing to \texttt{PORTB} since the on-board LEDs are active-low.
+  \item \textbf{Task 3.2 (Push-Button Control):} Integrate the two on-board push buttons on \texttt{PORTD} to control the animation:
+    \begin{itemize}
+      \item Button S11 on \textbf{PD2}: Direct the running light to shift to the left.
+      \item Button S10 on \textbf{PD6}: Direct the running light to shift to the right.
+    \end{itemize}
+  \item \textbf{Task 3.3 (Variable Speed via Switches):} Read the lower 2 bits of the \texttt{PORTC} DIP switches using a bitwise mask (\texttt{\& 0x03}) and use an arithmetic expression to dynamically scale the delay duration (e.g., $50\,\text{ms} \times (\text{setting} + 1)$ for 50\,ms, 100\,ms, 150\,ms, and 200\,ms).
+\end{itemize}
 
 \end{document}
