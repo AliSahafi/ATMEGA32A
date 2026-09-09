@@ -1,0 +1,82 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+\emergencystretch=2em
+\definecolor{codebg}{gray}{0.95}
+\lstset{language=C++, basicstyle=\ttfamily\small, keywordstyle=\color{blue!70!black},
+  commentstyle=\color{green!50!black}\itshape, backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{black!20}, breaklines=true, showstringspaces=false,
+  tabsize=2, columns=flexible}
+
+\title{ATmega32A Module \\ \Large Common Definitions (\texttt{common.hpp})}
+\author{Ali Sahafi}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{What this file is}
+
+Every driver module in this course (GPIO, ADC, UART, \dots) starts with
+\lstinline|#include "../common/common.hpp"|. You never include this file
+yourself --- it comes along automatically with whichever module you use.
+It provides three things:
+
+\begin{enumerate}
+  \item The MCU definition \texttt{\_\_AVR\_ATmega32A\_\_} so that
+        \texttt{<avr/io.h>} exposes the correct register names.
+  \item The standard AVR headers: \texttt{<avr/io.h>} (registers),
+        \texttt{<avr/interrupt.h>} (ISR support, \texttt{sei()}/\texttt{cli()}) and
+        \texttt{<util/delay.h>} (\texttt{\_delay\_ms()}).
+  \item A set of Arduino-like constants used across all modules.
+\end{enumerate}
+
+\section{Constants}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Constant} & \textbf{Value} & \textbf{Meaning} \\
+\midrule
+\texttt{INPUT}        & 0    & Pin is an input (high impedance) \\
+\texttt{OUTPUT}       & 1    & Pin is an output \\
+\texttt{INPUT\_PULLUP} & 2    & Input with the internal pull-up resistor enabled \\
+\texttt{LOW}          & 0    & Logic 0 (GND) \\
+\texttt{HIGH}         & 1    & Logic 1 (VCC) \\
+\texttt{ALL}          & 0xFF & Selects the \emph{whole port} instead of one pin \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{The \texttt{F\_CPU} rule}
+
+\texttt{F\_CPU} tells the toolchain how fast your CPU clock is. Delay loops,
+UART baud rates and timer calculations are all derived from it, so it must
+match the \emph{real} clock of your chip (set by the fuse bits --- see the
+\texttt{Makefile} targets \texttt{int-1mhz} \dots\ \texttt{ext-xtal}).
+
+\textbf{Always define it \emph{before} the first driver include:}
+
+\begin{lstlisting}
+#define F_CPU 8000000UL   // 8 MHz -- must come first!
+#include "drivers/gpio/gpio.hpp"
+\end{lstlisting}
+
+If you forget, the driver falls back to 8\,MHz and the compiler prints a
+warning. A wrong \texttt{F\_CPU} does not stop compilation --- but your
+delays will be wrong and your UART will print garbage. If the serial
+terminal shows random characters, check \texttt{F\_CPU} and the fuses first.
+
+\section{One source file per program}
+
+The drivers are \emph{header-only}: all code lives in \texttt{.hpp} files and
+each firmware image is built from exactly one \texttt{.cpp} file. Include
+only the modules you need --- unused peripherals then cost no flash memory
+and no interrupt vectors.
+
+\end{document}

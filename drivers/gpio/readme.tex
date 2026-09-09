@@ -1,0 +1,109 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+\emergencystretch=2em
+\definecolor{codebg}{gray}{0.95}
+\lstset{language=C++, basicstyle=\ttfamily\small, keywordstyle=\color{blue!70!black},
+  commentstyle=\color{green!50!black}\itshape, backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{black!20}, breaklines=true, showstringspaces=false,
+  tabsize=2, columns=flexible}
+
+\title{ATmega32A Module \\ \Large GPIO (Digital Input / Output)}
+\author{Ali Sahafi}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Theory}
+
+GPIO (\emph{General Purpose Input/Output}) is the most basic peripheral: each
+pin of the microcontroller can be a digital \textbf{output} (drive 0\,V or
+5\,V) or a digital \textbf{input} (read whether the outside world applies
+0\,V or 5\,V). The ATmega32A has four 8-bit ports: \textbf{PORTA},
+\textbf{PORTB}, \textbf{PORTC} and \textbf{PORTD} --- 32 pins in total.
+
+Each port is controlled by three registers ($x$ = A, B, C or D):
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Register} & \textbf{Role} & \textbf{Bit meaning} \\
+\midrule
+\texttt{DDR$x$}  & Data Direction & 1 = output, 0 = input \\
+\texttt{PORT$x$} & Output latch / pull-up & output: pin level; input: 1 = pull-up on \\
+\texttt{PIN$x$}  & Input read & the actual voltage currently on the pin \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Internal pull-up.} An unconnected input pin \emph{floats}: it reads
+random values. For buttons, enable the internal pull-up
+(\texttt{INPUT\_PULLUP}): the pin then rests at \texttt{HIGH}, and the button
+connects it to GND, so \textbf{pressed = LOW}. This ``active-low'' logic is
+the standard way to wire buttons.
+
+\section{API reference}
+
+The driver auto-corrects a common mistake: if you accidentally pass
+\texttt{PORTx} where \texttt{DDRx} is expected, \texttt{setDirection} fixes
+it for you.
+
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Method} & \textbf{Description} \\
+\midrule
+\texttt{GPIO.setDirection(DDRx, pin, OUTPUT)} & Set single pin direction \\
+\texttt{GPIO.setDirection(DDRx, ALL, INPUT\_PULLUP)} & Set whole port direction \\
+\texttt{GPIO.write(PORTx, pin, HIGH/LOW)} & Write single pin \\
+\texttt{GPIO.write(PORTx, ALL, 0xF0)} & Write raw byte to whole port \\
+\texttt{GPIO.write(PORTx, 0xF0)} & Shorthand whole-port write \\
+\texttt{GPIO.read(PINx, pin)} & Read single pin --- returns \texttt{HIGH} or \texttt{LOW} \\
+\texttt{GPIO.read(PINx, ALL)} & Read whole port --- returns 0--255 \\
+\texttt{GPIO.read(PINx)} & Shorthand whole-port read \\
+\texttt{GPIO.toggle(PORTx, pin)} & Toggle single pin \\
+\texttt{GPIO.toggle(PORTx, ALL)} & Toggle whole port \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Constants:} \texttt{INPUT}, \texttt{OUTPUT}, \texttt{INPUT\_PULLUP},
+\texttt{HIGH}, \texttt{LOW}, \texttt{ALL} (see Module 0).
+
+\section{Example: button-controlled LED}
+
+\paragraph{Wiring.}
+\begin{itemize}
+  \item Push button between \textbf{PD2} and \textbf{GND} (internal pull-up used, no external resistor needed).
+  \item LED + 330\,$\Omega$ resistor from \textbf{PC0} to GND (follows the button).
+  \item LED + 330\,$\Omega$ resistor from \textbf{PC1} to GND (blinks continuously).
+\end{itemize}
+
+\paragraph{Build \& flash.} \texttt{make gpio}
+
+\lstinputlisting{example.cpp}
+
+Note that reading uses \texttt{PIND} (the input register) while writing uses
+\texttt{PORTC} (the output latch) --- mixing these up is the classic GPIO bug.
+
+\section{Exercises}
+
+\begin{enumerate}
+  \item Change the program so the LED on PC0 \emph{toggles} once per button
+        press instead of following it. (Hint: you must detect the
+        \emph{edge} --- remember the previous button state in a variable.)
+  \item Connect 8 LEDs to PORTC and write a ``running light'' (Knight Rider)
+        pattern using the whole-port \texttt{GPIO.write(PORTC, value)} overload.
+  \item Why does a button need a pull-up at all? Remove
+        \texttt{INPUT\_PULLUP} (use plain \texttt{INPUT}), run the program and
+        explain what you observe.
+\end{enumerate}
+
+\end{document}

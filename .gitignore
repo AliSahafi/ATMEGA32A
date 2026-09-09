@@ -1,0 +1,28 @@
+# Build artifacts
+*.bin
+*.hex
+*.elf
+*.o
+*.map
+a.out
+
+# macOS
+.DS_Store
+
+# VS Code / IDE
+.vscode/
+.cache/
+compile_commands.json
+
+# LaTeX build artifacts (readme.tex handouts)
+*.aux
+*.log
+*.out
+*.synctex.gz
+
+# Temp files
+*.bak
+
+# Claude Code
+CLAUDE.md
+Exam.docx
