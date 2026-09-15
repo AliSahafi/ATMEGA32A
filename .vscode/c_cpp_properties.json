@@ -1,7 +1,7 @@
 {
   "configurations": [
     {
-      "name": "AVR",
+      "name": "Linux",
       "includePath": [
         "${workspaceFolder}/**"
       ],
@@ -13,6 +13,35 @@
       "cStandard": "c11",
       "cppStandard": "c++11",
       "intelliSenseMode": "gcc-x64"
+    },
+    {
+      "name": "Mac",
+      "includePath": [
+        "${workspaceFolder}/**"
+      ],
+      "defines": [
+        "__AVR_ATmega32A__",
+        "F_CPU=8000000UL"
+      ],
+      "compilerPath": "avr-gcc",
+      "cStandard": "c11",
+      "cppStandard": "c++11",
+      "intelliSenseMode": "gcc-x64"
+    },
+    {
+      "name": "Win32",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "C:/Program Files/Scoop/apps/avr-gcc/current/avr/include"
+      ],
+      "defines": [
+        "__AVR_ATmega32A__",
+        "F_CPU=8000000UL"
+      ],
+      "compilerPath": "C:/Program Files/Scoop/apps/avr-gcc/current/bin/avr-g++.exe",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "windows-gcc-x64"
     }
   ],
   "version": 4
