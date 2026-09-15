@@ -1,6 +1,20 @@
 /*
  * ATmega32A Driver — GPIO Module
  * Developed by Ali Sahafi <ali.sahafi@gmail.com> with help from Claude AI.
+ *
+ * Full usage guide: readme.pdf (this folder). Worked example: example.cpp.
+ *
+ * Quick usage (call these on the shared `GPIO` instance below):
+ *   GPIO.setDirection(PORTx, pin, OUTPUT|INPUT|INPUT_PULLUP)  // single pin
+ *   GPIO.setDirection(PORTx, ALL, OUTPUT)                     // whole port
+ *   GPIO.write(PORTx, pin, HIGH|LOW)                          // single pin
+ *   GPIO.write(PORTx, ALL, 0xF0)  or  GPIO.write(PORTx, 0xF0) // whole port
+ *   GPIO.read(PORTx, pin)                                     // -> HIGH/LOW
+ *   GPIO.read(PORTx, ALL)  or  GPIO.read(PORTx)                // -> 0..255
+ *   GPIO.toggle(PORTx, pin)  or  GPIO.toggle(PORTx, ALL)
+ *
+ * You can pass PORTx, DDRx, or PINx to any of these interchangeably --
+ * each function auto-corrects to the register it actually needs.
  */
 
 #ifndef ATMEGA32A_GPIO_HPP
@@ -13,6 +27,8 @@
 // ---------------------------------------------------------
 class GPIO_Driver {
 public:
+  // Set one pin's direction: dir = OUTPUT, INPUT, or INPUT_PULLUP.
+  // Pass PORTx/DDRx/PINx for `ddr` -- it's auto-corrected either way.
   static inline void setDirection(volatile uint8_t &ddr, uint8_t pin,
                                   uint8_t dir) {
     volatile uint8_t *actual_ddr = &ddr;
@@ -48,6 +64,7 @@ public:
     }
   }
 
+  // Set one pin HIGH or LOW. Pass PORTx/DDRx/PINx for `port` -- auto-corrected.
   static inline void write(volatile uint8_t &port, uint8_t pin, uint8_t state) {
     volatile uint8_t *actual_port = &port;
 
@@ -68,10 +85,12 @@ public:
     }
   }
 
+  // Shorthand for write(port, ALL, value): write a raw byte to the whole port.
   static inline void write(volatile uint8_t &port, uint8_t value) {
     write(port, ALL, value);
   }
 
+  // Read one pin -> HIGH or LOW. Pass PORTx/DDRx/PINx for `pin_reg` -- auto-corrected.
   static inline uint8_t read(volatile uint8_t &pin_reg, uint8_t pin) {
     volatile uint8_t *actual_pin = &pin_reg;
 
@@ -86,10 +105,12 @@ public:
     return (*actual_pin & (1 << pin)) ? HIGH : LOW;
   }
 
+  // Shorthand for read(pin_reg, ALL): read the whole port -> 0..255.
   static inline uint8_t read(volatile uint8_t &pin_reg) {
     return read(pin_reg, ALL);
   }
 
+  // Flip one pin (or the whole port with ALL). Pass PORTx/DDRx/PINx -- auto-corrected.
   static inline void toggle(volatile uint8_t &port, uint8_t pin) {
     volatile uint8_t *actual_port = &port;
 

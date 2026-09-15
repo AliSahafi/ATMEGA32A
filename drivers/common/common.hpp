@@ -2,8 +2,19 @@
  * ATmega32A Driver — Common Definitions
  * Developed by Ali Sahafi <ali.sahafi@gmail.com> with help from Claude AI.
  *
+ * Full usage guide: readme.pdf (this folder).
+ *
  * Shared by every driver module. Include a module header (e.g.
- * "../gpio/gpio.hpp") and this file comes with it automatically.
+ * "../gpio/gpio.hpp") and this file comes with it automatically --
+ * you never include this file directly.
+ *
+ * IMPORTANT: define F_CPU *before* your first driver #include, or it
+ * silently defaults to 8MHz (see readme.pdf, "The F_CPU rule"):
+ *   #define F_CPU 8000000UL
+ *   #include "../gpio/gpio.hpp"
+ *
+ * Provides the Arduino-like constants below (INPUT, OUTPUT, HIGH, LOW, ...)
+ * used across every module.
  */
 
 #ifndef ATMEGA32A_COMMON_HPP

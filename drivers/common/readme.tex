@@ -13,7 +13,7 @@
   frame=single, rulecolor=\color{black!20}, breaklines=true, showstringspaces=false,
   tabsize=2, columns=flexible}
 
-\title{ATmega32A Module \\ \Large Common Definitions (\texttt{common.hpp})}
+\title{ATmega32A Module \\ \Large Common Definitions (\texttt{common.hpp}) \\ \Large \& Seven-Segment Display (\texttt{sevenseg.hpp})}
 \author{Ali Sahafi}
 \date{}
 
@@ -78,5 +78,62 @@ The drivers are \emph{header-only}: all code lives in \texttt{.hpp} files and
 each firmware image is built from exactly one \texttt{.cpp} file. Include
 only the modules you need --- unused peripherals then cost no flash memory
 and no interrupt vectors.
+
+\section{Seven-Segment Display (\texttt{sevenseg.hpp})}
+
+\texttt{sevenseg.hpp} is a small helper module for driving a single
+\textbf{active-low, common-anode} seven-segment display that is wired
+directly to \textbf{PORTB}. Include it explicitly --- it is not pulled in
+automatically by other modules:
+
+\begin{lstlisting}
+#define F_CPU 8000000UL
+#include "../common/sevenseg.hpp"
+\end{lstlisting}
+
+\paragraph{Wiring.} All 8 bits of \texttt{PORTB} are dedicated to the
+display's segments (including the decimal point), so \texttt{PORTB} must
+not be used for anything else while this module is active. The driver sets
+\texttt{PORTB} directly; it does not touch \texttt{DDRB}, so you must
+configure \texttt{PORTB} as \texttt{OUTPUT} yourself (e.g.\ via
+\texttt{GPIO.setDirection(PORTB, ALL, OUTPUT)}) before calling it.
+
+\paragraph{API reference.}
+
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Function} & \textbf{Description} \\
+\midrule
+\texttt{SevenSeg(digit)} & Displays \texttt{digit} (0--9) on the seven-segment \\
+                         & display and returns the raw segment pattern written. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\texttt{digit} is expected to be in the range \texttt{0}--\texttt{9}. Any
+other value (e.g.\ from an unmasked 4-bit input of \texttt{10}--\texttt{15})
+falls back to a dash-like pattern (\texttt{0b10001100}) instead of showing a
+digit, which is useful for spotting out-of-range input while debugging.
+
+\paragraph{Example: binary switches to seven-segment digit.}
+
+\begin{lstlisting}
+#define F_CPU 8000000UL
+#include "../gpio/gpio.hpp"
+#include "../common/sevenseg.hpp"
+
+int main() {
+  GPIO.setDirection(PORTB, ALL, OUTPUT);       // seven-segment on PORTB
+  GPIO.setDirection(PORTC, ALL, INPUT_PULLUP); // DIP switches on PORTC
+
+  while (1) {
+    uint8_t value = GPIO.read(PORTC) & 0x0F; // lower 4 bits -> 0..15
+    SevenSeg(value);
+    _delay_ms(50);
+  }
+}
+\end{lstlisting}
 
 \end{document}
