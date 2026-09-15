@@ -1,6 +1,7 @@
 \documentclass[11pt,a4paper]{article}
 \usepackage[margin=2.0cm]{geometry}
 \usepackage[T1]{fontenc}
+\usepackage{lmodern}
 \usepackage{amsmath}
 \usepackage{booktabs}
 \usepackage{xcolor}
@@ -107,8 +108,7 @@ confusion.
 Develop a function to capture a 4-bit binary input from the switches and display the corresponding decimal digit on the seven-segment display:
 \begin{itemize}
   \item \textbf{Input Capture:} Read the lower 4 bits of the DIP switches on \texttt{PORTC} (\texttt{PC0}--\texttt{PC3}) using bitwise masking (\texttt{value \& 0x0F}).
-  \item \textbf{Value Mapping:} Convert the 4-bit binary value (0--9) into the corresponding segment pattern for the active-low common-anode display (refer to the segment encoding table from the lecture slides).
-  \item \textbf{Output to Display:} Send the mapped segment byte to \texttt{PORTB} to illuminate the digit on the display.
+  \item \textbf{Value Mapping \& Output:} Pass the captured 4-bit value to \texttt{SevenSeg(digit)} (\texttt{common/sevenseg.hpp}). The driver converts the digit into the correct segment pattern for the active-low common-anode display and writes it directly to \texttt{PORTB}.
   \item \textbf{Example:} If the switches are set to binary \texttt{0101}, the seven-segment display should show the digit ``5''.
 \end{itemize}
 
