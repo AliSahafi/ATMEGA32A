@@ -2,12 +2,13 @@
 #
 #   make                     build + flash main.cpp (and set ext-xtal fuses)
 #   make gpio                build + flash drivers/gpio/example.cpp
+#   make timer               build + flash drivers/timer/example.cpp
 #   make build SRC=file.cpp  compile + hex only, no flashing
 #
 # Fuse targets: int-1mhz, int-2mhz, int-4mhz, int-8mhz, ext-xtal
 
 SRC ?= main.cpp
-MODULES = gpio
+MODULES = gpio timer
 
 .PHONY: main build flash clean $(MODULES) int-1mhz int-2mhz int-4mhz int-8mhz ext-xtal
 

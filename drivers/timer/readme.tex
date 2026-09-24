@@ -1,0 +1,275 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.0cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+\emergencystretch=2em
+\definecolor{codebg}{gray}{0.95}
+\lstset{language=C++, basicstyle=\ttfamily\footnotesize, keywordstyle=\color{blue!70!black},
+  commentstyle=\color{green!50!black}\itshape, backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{black!20}, breaklines=true, showstringspaces=false,
+  tabsize=2, columns=flexible}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{ATmega32A Module \\ \Large Timers (Normal, CTC and Fast PWM)}
+\author{Ali Sahafi}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Theory}
+
+A hardware timer is a counter that counts clock ticks \emph{by itself},
+independently of your program. The ATmega32A has three:
+
+\begin{center}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Timer} & \textbf{Width} & \textbf{Counts} & \textbf{Prescalers} & \textbf{OC pin(s)} \\
+\midrule
+\code{Timer0} & 8-bit  & 0--255   & 1, 8, 64, 256, 1024          & \code{PB3} (LED D3) \\
+\code{Timer1} & 16-bit & 0--65535 & 1, 8, 64, 256, 1024          & \code{PD5} (A), \code{PD4} (B) \\
+\code{Timer2} & 8-bit  & 0--255   & 1, 8, 32, 64, 128, 256, 1024 & \code{PD7} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Prescaler.} The CPU clock is divided by the prescaler $N$ before
+it reaches the counter, so one count takes
+$t_{\text{tick}} = N / F_{\text{CPU}}$. Example: at 8\,MHz with $N = 1024$,
+one count lasts $128\,\mu$s.
+
+\paragraph{The three modes.}
+\begin{itemize}
+  \item \textbf{Normal} (\code{TIMER\_NORMAL}): counts up to the maximum (255
+        or 65535), \emph{overflows} back to 0 and sets the overflow flag
+        \code{TOV}. To get a shorter delay, \emph{preload} the counter:
+        \[ t = (256 - \text{preload}) \cdot \frac{N}{F_{\text{CPU}}} \qquad (65536 \text{ for Timer1}) \]
+  \item \textbf{CTC} (\code{TIMER\_CTC}, \emph{Clear Timer on Compare}):
+        counts up to the compare value \code{OCR}, sets the compare flag
+        \code{OCF}, restarts at 0. No preloading needed:
+        \[ t = (\text{OCR} + 1) \cdot \frac{N}{F_{\text{CPU}}} \]
+        The timer can also \emph{toggle / set / clear its OC pin} on every
+        match, which produces a square wave with no CPU work at all.
+  \item \textbf{Fast PWM} (\code{TIMER\_FAST\_PWM}): counts 0--255 over and over;
+        the OC pin is switched at 0 and at the compare value, giving a PWM
+        signal with a duty cycle set by \code{OCR}:
+        \[ F_{\text{PWM}} = \frac{F_{\text{CPU}}}{N \cdot 256} \qquad
+           \text{Duty (active part)} = \frac{\text{OCR} + 1}{256} \]
+\end{itemize}
+
+\section{API reference}
+
+Three ready-made objects exist: \code{Timer0}, \code{Timer1}, \code{Timer2}.
+Every timer is started with one call:
+
+\begin{lstlisting}
+Timer0.begin(mode, prescaler);            // timer only
+Timer0.begin(mode, prescaler, pinMode);   // timer + drive the OC pin
+\end{lstlisting}
+
+\subsection*{The options}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Argument} & \textbf{Value} & \textbf{Meaning} \\
+\midrule
+\code{mode} & \code{TIMER\_NORMAL}   & Count 0 \dots\ max, overflow, wrap to 0 \\
+            & \code{TIMER\_CTC}      & Count 0 \dots\ compare value, restart at 0 \\
+            & \code{TIMER\_FAST\_PWM} & Count 0 \dots\ 255, OC pin outputs PWM \\
+\midrule
+\code{prescaler} & \code{1}, \code{8}, \code{64}, \code{256}, \code{1024} &
+      Just write the divider you want. Timer2 also accepts \code{32} and \code{128}. \\
+      & \code{EXT\_FALLING}, \code{EXT\_RISING} &
+      Timer0/1 only: count pulses on pin \code{T0}\,=\,\code{PB0} / \code{T1}\,=\,\code{PB1} (counter mode) \\
+\midrule
+\code{pinMode} & \code{OC\_OFF} (default) & OC pin stays a normal GPIO pin \\
+\multicolumn{3}{@{}l}{\emph{\quad in \code{TIMER\_NORMAL} / \code{TIMER\_CTC}:}} \\
+               & \code{OC\_TOGGLE} & Toggle the OC pin on every compare match \\
+               & \code{OC\_CLEAR}  & Drive the OC pin LOW on compare match \\
+               & \code{OC\_SET}    & Drive the OC pin HIGH on compare match \\
+\multicolumn{3}{@{}l}{\emph{\quad in \code{TIMER\_FAST\_PWM}:}} \\
+               & \code{PWM\_NON\_INVERTING} & HIGH from 0 until the compare value, then LOW \\
+               & \code{PWM\_INVERTING}      & LOW from 0 until the compare value, then HIGH.
+                  Use this for the \textbf{active-low LEDs} on the board. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+When \code{pinMode} is not \code{OC\_OFF}, the driver makes the OC pin an
+output automatically. While the timer drives it, writes to that pin through
+\code{GPIO} are ignored.
+
+\subsection*{Methods}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Method} & \textbf{Description} \\
+\midrule
+\code{Timer0.begin(mode, prescaler, pinMode)} & Configure and start (see options above) \\
+\code{Timer0.setCount(value)} & Preload the counter (e.g.\ 156 for 100 counts in Normal mode) \\
+\code{Timer0.getCount()} & Read the counter (0--255; Timer1: 0--65535) \\
+\code{Timer0.setCompare(value)} & Compare value: CTC ``count-to'' value, or PWM level 0--255 \\
+\code{Timer0.setDutyCycle(percent)} & PWM only: 0--100\,\% of the period the pin is \emph{active}
+       (HIGH for \code{PWM\_NON\_INVERTING}, LOW for \code{PWM\_INVERTING}). 0\,\% and 100\,\% are exact. \\
+\code{Timer0.overflowed()} & \code{true} once per overflow --- the flag is cleared for you \\
+\code{Timer0.compareMatched()} & \code{true} once per compare match --- the flag is cleared for you \\
+\code{Timer0.stop()} / \code{Timer0.start()} & Pause / resume counting; settings are kept \\
+\code{Timer0.onOverflow(function)} & \emph{Optional:} call \code{function} on every overflow (interrupt) \\
+\code{Timer0.onCompareMatch(function)} & \emph{Optional:} call \code{function} on every compare match (interrupt) \\
+\midrule
+\multicolumn{2}{@{}l}{\emph{Timer1 only (two OC channels, A = \code{PD5}, B = \code{PD4}):}} \\
+\code{Timer1.begin(mode, N, pinModeA, pinModeB)} & Channel B gets its own \code{pinMode} \\
+\code{Timer1.setCompareA/B(value)} & 16-bit compare values. \code{setCompare()} = channel A; CTC counts up to A \\
+\code{Timer1.setDutyCycleA/B(percent)} & PWM duty per channel. \code{setDutyCycle()} = channel A \\
+\code{Timer1.compareMatchedA/B()} & Compare flags per channel. \code{compareMatched()} = channel A \\
+\code{Timer1.setTop(top)} & PWM period in counts (default 255): $T_{\text{PWM}} = (\text{top}+1) \cdot N / F_{\text{CPU}}$ \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{Waiting for a flag (polling).}
+\code{overflowed()} and \code{compareMatched()} behave like ``has it happened
+since I last asked?''. So \code{while (!Timer0.overflowed());} simply waits for
+the next overflow. You never write 1 to \code{TIFR} yourself.
+
+\paragraph{Interrupts (optional).} \code{onOverflow()} and
+\code{onCompareMatch()} enable the interrupt and \code{sei()} for you. The
+function runs in the background; keep it short and declare variables it shares
+with \code{main()} as \code{volatile}. Pass \code{nullptr} to switch it off.
+
+\subsection*{What the driver does in the registers}
+
+The lecture slides configure the registers by hand. Each driver call is
+exactly one of those steps:
+
+\begin{center}
+\small
+{\footnotesize\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Driver call} & \textbf{Registers (Timer0)} & \textbf{Bits} \\
+\midrule
+\code{Timer0.begin(TIMER\_NORMAL, 1024)}          & \code{TCCR0 = 0x05;} & \code{CS02 CS00} \\
+\code{Timer0.begin(TIMER\_CTC, 1024, OC\_TOGGLE)} & \code{TCCR0 = 0x1D;} & \code{WGM01 COM00 CS02 CS00} \\
+                                                  & \code{DDRB |= 1<{}<PB3;} & OC0 pin as output \\
+\code{Timer0.begin(TIMER\_FAST\_PWM, 1, PWM\_INVERTING)} & \code{TCCR0 = 0x79;} & \code{WGM00 WGM01 COM01 COM00 CS00} \\
+\code{Timer0.setCount(156)}   & \code{TCNT0 = 156;} & \\
+\code{Timer0.setCompare(x)}   & \code{OCR0 = x;} & \\
+\code{Timer0.overflowed()}    & \code{TIFR \& (1<{}<TOV0)} & then \code{TIFR = 1<{}<TOV0;} \\
+\code{Timer0.compareMatched()} & \code{TIFR \& (1<{}<OCF0)} & then \code{TIFR = 1<{}<OCF0;} \\
+\bottomrule
+\end{tabular}}
+\end{center}
+
+\paragraph{Warning: \code{F\_CPU} and the fuses.} All timing formulas use the
+\emph{real} clock. \code{make} (and \code{make timer}) always programs the
+fuses for the external 8\,MHz crystal. To run at another clock, first set the
+fuses (e.g.\ \code{make int-1mhz}), then flash \emph{without} touching the fuses:
+\code{make build flash SRC=Task.cpp}. Also change \code{\#define F\_CPU} so
+\code{\_delay\_ms()} stays correct.
+
+\newpage
+\section{Example: blink + PWM, all in hardware}
+
+\paragraph{Board Hardware.} All components are already on the development board:
+\begin{itemize}
+  \item \textbf{8 LEDs (D0--D7) on PORTB}, active-low (\code{LOW} = ON). LED \textbf{D3} sits on \code{PB3} = \code{OC0}, the Timer0 output pin.
+  \item \textbf{Seven-segment display} also on PORTB (shares the pins with the LEDs).
+  \item \textbf{8 DIP switches (S0--S7) on PORTC}, closed = \code{LOW}; use \code{INPUT\_PULLUP}.
+  \item \textbf{Push buttons} S11 on \code{PD2} and S10 on \code{PD6}, pressed = \code{LOW}.
+\end{itemize}
+
+\paragraph{Build \& flash.} \code{make timer}
+
+\lstinputlisting{example.cpp}
+
+\newpage
+\section{Laboratory Tasks}
+
+Create one \code{.cpp} file per task in the project root (e.g.\
+\code{Task1.cpp}), start it with \code{\#define F\_CPU} and include the drivers
+you need (\code{drivers/gpio/gpio.hpp}, \code{drivers/timer/timer.hpp},
+\code{drivers/common/sevenseg.hpp}), then flash with
+\code{make SRC=Task1.cpp}.
+
+\subsection*{Task 0: Fuse Bits and \code{F\_CPU} (10 min)}
+Count 0--9 on the seven-segment display, one step per second, using
+\code{SevenSeg(digit)} and \code{\_delay\_ms(1000)}.
+\begin{itemize}
+  \item \textbf{Task 0.1 (Internal 1\,MHz):} Run \code{make int-1mhz}, set
+        \code{\#define F\_CPU 1000000UL} and flash with
+        \code{make build flash SRC=Task0.cpp}. Check the timing with a stopwatch.
+  \item \textbf{Task 0.2 (External 8\,MHz crystal):} Set
+        \code{\#define F\_CPU 8000000UL} and flash with \code{make SRC=Task0.cpp}
+        (this also selects the crystal).
+  \item \textbf{Task 0.3 (Mismatch):} Keep \code{F\_CPU 8000000UL} but switch the
+        chip back to \code{make int-1mhz}. How long is one ``second'' now, and why?
+\end{itemize}
+
+\subsection*{Task 1: Timer Normal Mode --- Counter on the LEDs (30 min)}
+Count in binary on the 8 LEDs, one step every \textbf{100\,ms}, timed by
+\code{Timer0} in \code{TIMER\_NORMAL} mode (external 8\,MHz crystal). The LEDs
+are active-low, so write the inverted count:\\ \code{GPIO.write(PORTB, \textasciitilde count)}.
+\begin{itemize}
+  \item \textbf{Task 1.1 (Calculate first):} With prescaler 1024, how long is one
+        count, and what is the \emph{longest} time a Timer0 overflow can take?
+        Why can a single overflow not give 100\,ms?
+  \item \textbf{Task 1.2 (10 $\times$ 10\,ms):} Compute the preload value for a
+        10\,ms overflow. Then, in the main loop, repeat 10 times: preload with
+        \code{Timer0.setCount()} and wait with
+        \code{while (!Timer0.overflowed());}. Then increment the counter.
+  \item \textbf{Task 1.3 (16-bit Timer1):} Do the same with \code{Timer1}, which
+        can reach 100\,ms in \emph{one} overflow. Which prescalers make the preload
+        value an exact integer? Compare the code with Task 1.2.
+\end{itemize}
+
+\subsection*{Task 2: Timer CTC Mode --- Hardware Blinker (20 min)}
+Let the timer blink LED \textbf{D3} (\code{PB3 = OC0}) by itself, with the blink
+speed set by the DIP switches on \code{PORTC}.
+\begin{itemize}
+  \item \textbf{Task 2.1 (Blink in hardware):} Start \code{Timer0} in
+        \code{TIMER\_CTC} mode, prescaler 1024, with \code{OC\_TOGGLE}. The main
+        loop only copies the switch value (\code{GPIO.read(PINC)}) into the
+        compare value with \code{Timer0.setCompare()} --- no flag checking needed.
+        At 8\,MHz, compute the slowest possible blink frequency. What do you see
+        on D3, and why?
+  \item \textbf{Task 2.2 (Make it visible):} Switch the chip to the internal
+        1\,MHz clock (see Task 0.1). What is the toggle interval range now? Verify
+        with the switches.
+  \item \textbf{Task 2.3 (It runs in parallel):} Keep the blinker and, in the same
+        loop, also show the switch value on the other LEDs:
+        \code{GPIO.write(PORTB, GPIO.read(PINC))}. Why does D3 keep blinking
+        although the loop also writes to \code{PB3}?
+\end{itemize}
+
+\subsection*{Task 3: Timer Fast PWM --- LED Brightness (25 min)}
+Control the brightness of LED \textbf{D3} (\code{OC0}) with PWM on \code{Timer0}.
+\begin{itemize}
+  \item \textbf{Task 3.1 (Switches $\rightarrow$ brightness):} Start \code{Timer0}
+        in \code{TIMER\_FAST\_PWM} with \code{PWM\_INVERTING} (the LED is
+        active-low). Choose the prescaler so that $F_{\text{PWM}} \approx 4$\,kHz at
+        8\,MHz. In the loop: \code{Timer0.setCompare(GPIO.read(PINC))}.
+  \item \textbf{Task 3.2 (Buttons in percent):} Replace the switches with the push
+        buttons: S11 (\code{PD2}) raises the brightness by 10\,\%, S10 (\code{PD6})
+        lowers it by 10\,\%, limited to 0--100\,\%. Use
+        \code{Timer0.setDutyCycle(percent)}. Act once per press (wait for release).
+  \item \textbf{Task 3.3 (Flicker):} Compute $F_{\text{PWM}}$ for prescalers 64, 256
+        and 1024. Try them: from which one on can you see the LED flicker?
+  \item \textbf{Task 3.4 (Breathing LED, two timers):} Fade D3 smoothly from 0 to
+        100\,\% and back, one 1\,\% step every 10\,ms. Instead of \code{\_delay\_ms()},
+        use \code{Timer1} in \code{TIMER\_CTC} mode as a 10\,ms time base
+        (\code{Timer1.compareMatched()}). Compute its prescaler and compare value.
+\end{itemize}
+
+\end{document}

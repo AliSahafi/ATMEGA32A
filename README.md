@@ -86,6 +86,7 @@ make            # compile and flash main.cpp
 Or flash the GPIO lecture example:
 ```bash
 make gpio       # flash drivers/gpio/example.cpp (button + LED)
+make timer      # flash drivers/timer/example.cpp (hardware blink + PWM)
 ```
 
 To compile without flashing:
@@ -100,6 +101,7 @@ make build SRC=path/to/file.cpp
 | Module | Status | Capabilities |
 |---|---|---|
 | [**GPIO**](drivers/gpio/) | **Active** | `OUTPUT`, `INPUT`, `INPUT_PULLUP` — per-pin or whole port at once |
+| [**Timer**](drivers/timer/) | **Active** | Timer0/1/2 — Normal, CTC and Fast PWM modes, OC pin output, flag polling or interrupts |
 
 Shared constants and `F_CPU` handling live in [`drivers/common/`](drivers/common/) and are included automatically.
 
@@ -163,6 +165,58 @@ See [`drivers/gpio/example.cpp`](drivers/gpio/example.cpp) for a full runnable e
 
 ---
 
+### Timer
+
+Three ready-made objects: `Timer0` (8-bit), `Timer1` (16-bit), `Timer2` (8-bit). Every timer is started with **one call**, and every option has a readable name:
+
+```cpp
+Timer0.begin(mode, prescaler);           // timer only
+Timer0.begin(mode, prescaler, pinMode);  // timer + drive its OC pin
+```
+
+| Argument | Values |
+|---|---|
+| `mode` | `TIMER_NORMAL` (count to max, overflow) · `TIMER_CTC` (count to compare value, restart) · `TIMER_FAST_PWM` |
+| `prescaler` | The divider itself: `1`, `8`, `64`, `256`, `1024` (Timer2 also `32`, `128`) · `EXT_FALLING` / `EXT_RISING` count pulses on T0/T1 |
+| `pinMode` | Normal/CTC: `OC_OFF` (default), `OC_TOGGLE`, `OC_CLEAR`, `OC_SET` · PWM: `PWM_NON_INVERTING`, `PWM_INVERTING` |
+
+OC pins: Timer0 = `PB3` (LED D3), Timer1 = `PD5` (A) / `PD4` (B), Timer2 = `PD7` — made outputs automatically.
+
+| Method | Description |
+|---|---|
+| `Timer0.setCount(value)` / `getCount()` | Preload / read the counter (TCNTn) |
+| `Timer0.setCompare(value)` | Compare value (OCRn): CTC count-to value or PWM level 0–255 |
+| `Timer0.setDutyCycle(percent)` | PWM: 0–100 % of the period the pin is active |
+| `Timer0.overflowed()` | `true` once per overflow — flag cleared for you |
+| `Timer0.compareMatched()` | `true` once per compare match — flag cleared for you |
+| `Timer0.stop()` / `start()` | Pause / resume |
+| `Timer0.onOverflow(fn)` / `onCompareMatch(fn)` | Optional: call `fn` from the interrupt |
+
+Timer1 adds channel B: `setCompareA/B`, `setDutyCycleA/B`, `compareMatchedA/B`, and `setTop(top)` to set the PWM period.
+
+#### Quick Example
+```cpp
+#define F_CPU 8000000UL
+#include "drivers/gpio/gpio.hpp"
+#include "drivers/timer/timer.hpp"
+
+int main() {
+  GPIO.setDirection(PORTB, ALL, OUTPUT);
+  Timer0.begin(TIMER_NORMAL, 1024);   // 1 count = 128 us at 8 MHz
+
+  uint8_t count = 0;
+  while (true) {
+    Timer0.setCount(256 - 78);        // 78 counts = 10 ms
+    while (!Timer0.overflowed());     // wait for the overflow flag
+    GPIO.write(PORTB, ~(++count));    // LEDs are active-low
+  }
+}
+```
+
+See [`drivers/timer/example.cpp`](drivers/timer/example.cpp) for a runnable example and [`drivers/timer/readme.pdf`](drivers/timer/readme.pdf) for the student handout (theory, options, register mapping, lab tasks).
+
+---
+
 ## Fuse Configuration (USBasp)
 
 | Target | Description |
@@ -172,3 +226,5 @@ See [`drivers/gpio/example.cpp`](drivers/gpio/example.cpp) for a full runnable e
 | `make int-4mhz` | Internal RC oscillator @ 4 MHz |
 | `make int-2mhz` | Internal RC oscillator @ 2 MHz |
 | `make int-1mhz` | Internal RC oscillator @ 1 MHz (factory default) |
+
+> ⚠️ Plain `make` always re-programs the fuses for the external crystal. After selecting another clock, flash with `make build flash SRC=file.cpp` and set `F_CPU` to match.
