@@ -202,6 +202,7 @@ fuses for the external 8\,MHz crystal. To use another clock:
 
 \newpage
 \section{Laboratory Tasks}
+\setlength{\parindent}{0pt}\setlength{\parskip}{5pt}
 
 For each task, make a new \code{.cpp} file in the main project folder (for
 example \code{Task1.cpp}). Start the file with \code{\#define F\_CPU}. Then
@@ -209,59 +210,41 @@ include the drivers you need: \code{drivers/gpio/gpio.hpp},
 \code{drivers/timer/timer.hpp}, \code{drivers/common/sevenseg.hpp}. Upload it
 with \code{make SRC=Task1.cpp}.
 
-\subsection*{Task 0: Fuse Bits and \code{F\_CPU} (10 min)}
+\subsection*{Task 0: 1\,MHz or 8\,MHz? (10 min)}
 Show the numbers 0 to 9 on the seven-segment display. Change the number every
-second. Use \code{SevenSeg(digit)} and \code{\_delay\_ms(1000)}.
-\begin{itemize}
-  \item \textbf{Task 0.1 (Internal 1\,MHz):} Run \code{make int-1mhz}. Write
-        \code{\#define F\_CPU 1000000UL} and upload with
-        \code{make build flash SRC=Task0.cpp}. Check the time with a stopwatch.
-  \item \textbf{Task 0.2 (External 8\,MHz crystal):} Write
-        \code{\#define F\_CPU 8000000UL} and upload with \code{make SRC=Task0.cpp}.
-        This command also selects the crystal.
-  \item \textbf{Task 0.3 (Wrong \code{F\_CPU}):} Keep \code{F\_CPU 8000000UL}, but
-        change the chip back to 1\,MHz with \code{make int-1mhz}. How long is one
-        ``second'' now? Explain why.
-\end{itemize}
+second. Use \code{SevenSeg(digit)} and \code{\_delay\_ms(1000)}, and write
+\code{\#define F\_CPU 8000000UL} at the top of the file.
+\begin{enumerate}
+  \item Upload with \code{make SRC=Task0.cpp}. This also sets the chip to the
+        external 8\,MHz crystal. Check with a stopwatch: is one step one second?
+  \item Now change the chip to the internal 1\,MHz clock with
+        \code{make int-1mhz}. Do not upload the program again.
+\end{enumerate}
+What is the difference? How long is one ``second'' now? Explain why.
 
 \subsection*{Task 1: Timer Normal Mode --- Counter on the LEDs (30 min)}
 Count in binary on the 8 LEDs. Add 1 every \textbf{100\,ms}. Use \code{Timer0}
-in \code{TIMER\_NORMAL} mode for the timing (external 8\,MHz crystal). The LEDs
-are active-low, so write the inverted value:\\ \code{GPIO.write(PORTB, \textasciitilde count)}.
-\begin{itemize}
-  \item \textbf{Task 1.1 (Calculate first):} With prescaler 1024, how long is one
-        count? What is the \emph{longest} time between two Timer0 overflows?
-        Why is one overflow not enough for 100\,ms?
-  \item \textbf{Task 1.2 (10 $\times$ 10\,ms):} Calculate the preload value for
-        10\,ms. In the main loop, do these two steps 10 times:
-        \begin{enumerate}
-          \item write the preload with \code{Timer0.setCount()};
-          \item wait with \code{while (!Timer0.overflowed());}.
-        \end{enumerate}
-        After that, add 1 to the counter.
-  \item \textbf{Task 1.3 (16-bit Timer1):} Do the same with \code{Timer1}.
-        Timer1 can make 100\,ms with \emph{one} overflow. With which prescalers
-        is the preload value a whole number? Compare your code with Task 1.2.
-\end{itemize}
+in \code{TIMER\_NORMAL} mode with prescaler 1024 for the timing (external
+8\,MHz crystal). The LEDs are active-low, so write the inverted value: \code{GPIO.write(PORTB, \textasciitilde count)}.
+
+One Timer0 overflow is too short for 100\,ms, so use 10 overflows of 10\,ms.
+Calculate the preload value for 10\,ms. In the main loop, do these two steps
+10 times:
+\begin{enumerate}
+  \item write the preload with \code{Timer0.setCount()};
+  \item wait with \code{while (!Timer0.overflowed());}.
+\end{enumerate}
+After that, add 1 to the counter.
 
 \subsection*{Task 2: Timer CTC Mode --- Blinking in Hardware (20 min)}
 The timer blinks LED \textbf{D3} (\code{PB3 = OC0}) without help from the CPU.
 The DIP switches on \code{PORTC} set the blink speed.
-\begin{itemize}
-  \item \textbf{Task 2.1 (Blink with the timer):} Start \code{Timer0} in
-        \code{TIMER\_CTC} mode with prescaler 1024 and \code{OC\_TOGGLE}. The main
-        loop only does one thing: it reads the switches (\code{GPIO.read(PINC)})
-        and writes the value with \code{Timer0.setCompare()}. You do not need to
-        check any flag. At 8\,MHz, calculate the slowest possible blink frequency.
-        What do you see on D3? Explain why.
-  \item \textbf{Task 2.2 (Make it visible):} Change the chip to the internal
-        1\,MHz clock (see Task 0.1). What is the shortest and the longest time
-        between two toggles now? Test it with the switches.
-  \item \textbf{Task 2.3 (Two things at the same time):} Keep the blinking LED.
-        In the same loop, also show the switch value on the other LEDs:
-        \code{GPIO.write(PORTB, GPIO.read(PINC))}. The loop also writes to
-        \code{PB3}. Why does D3 still blink?
-\end{itemize}
+
+Start \code{Timer0} in \code{TIMER\_CTC} mode with prescaler 1024 and
+\code{OC\_TOGGLE}. The main loop only does one thing: it reads the switches
+(\code{GPIO.read(PINC)}) and writes the value with \code{Timer0.setCompare()}.
+You do not need to check any flag. At 8\,MHz, calculate the slowest possible
+blink frequency. What do you see on D3? Explain why.
 
 \subsection*{Task 3: Timer Fast PWM --- LED Brightness (25 min)}
 Change the brightness of LED \textbf{D3} (\code{OC0}) with PWM from \code{Timer0}.
@@ -276,15 +259,48 @@ Change the brightness of LED \textbf{D3} (\code{OC0}) with PWM from \code{Timer0
         (\code{PD6}) makes it 10\,\% darker. Keep the value between 0 and
         100\,\%. Use \code{Timer0.setDutyCycle(percent)}. One press must change
         the value only one time, so wait until the button is released.
-  \item \textbf{Task 3.3 (Flicker):} Calculate $F_{\text{PWM}}$ for the prescalers
-        64, 256 and 1024. Try all three. With which prescaler do you start to
-        see the LED flicker?
-  \item \textbf{Task 3.4 (Breathing LED with two timers):} Make D3 slowly brighter
-        from 0 to 100\,\%, then slowly darker again. Change the value by 1\,\%
-        every 10\,ms. Do not use \code{\_delay\_ms()}. Instead, use \code{Timer1}
-        in \code{TIMER\_CTC} mode to measure the 10\,ms
-        (\code{Timer1.compareMatched()}). Calculate the prescaler and the compare
-        value for Timer1.
+  \item \textbf{Task 3.3 (Breathing LED with two timers):} LED D3 should slowly
+        become brighter from 0\,\% to 100\,\%, and then slowly darker from
+        100\,\% to 0\,\%. This repeats all the time.
 \end{itemize}
+
+\paragraph{Task 3.3 step by step.} You need two timers, and each timer has
+one job:
+\begin{itemize}
+  \item \textbf{Timer0 makes the brightness.} It creates the PWM signal on D3,
+        exactly as in Task 3.1 (Fast PWM, about 4\,kHz, \code{PWM\_INVERTING}).
+  \item \textbf{Timer1 is a clock that ``ticks'' every 10\,ms.} Use
+        \code{TIMER\_CTC} mode. Every 10\,ms there is a compare match, and
+        \code{Timer1.compareMatched()} returns \code{true} one time.
+\end{itemize}
+Calculate the Timer1 compare value with $t = (\text{OCR} + 1) \cdot N / F_{\text{CPU}}$.
+Hint: with prescaler $N = 64$ at 8\,MHz, one count takes $8\,\mu$s. How many
+counts are 10\,ms?
+
+On every tick, change the brightness by 1\,\%. Use two variables:
+\code{percent} (the brightness now, 0--100) and \code{step} (\code{+1} for
+brighter, \code{-1} for darker). When \code{percent} reaches 100, change
+\code{step} to \code{-1}. When it reaches 0, change \code{step} to \code{+1}.
+One full ``breath'' then takes $200 \times 10\,\text{ms} = 2$\,s.
+
+\begin{lstlisting}
+Timer0.begin(TIMER_FAST_PWM, ??, PWM_INVERTING);  // brightness (PWM on D3)
+Timer1.begin(TIMER_CTC, 64);                      // tick every 10 ms
+Timer1.setCompare(??);
+
+int8_t percent = 0;
+int8_t step = +1;
+
+while (true) {
+  if (Timer1.compareMatched()) {   // true once every 10 ms
+    percent = percent + step;
+    if (percent == ??) step = ??;  // top reached: go darker
+    if (percent == ??) step = ??;  // bottom reached: go brighter
+    Timer0.setDutyCycle(percent);
+  }
+}
+\end{lstlisting}
+Why is this better than \code{\_delay\_ms(10)}? The CPU never waits, so the
+loop can do other work at the same time (for example, read the buttons).
 
 \end{document}
