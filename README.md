@@ -213,6 +213,12 @@ int main() {
 }
 ```
 
+#### Task 3.3 on the board
+
+The breathing LED from the lab tasks: LED D3 fades from 0 % to 100 % and back, one 1 % step every 10 ms (Timer0 = PWM, Timer1 = 10 ms tick).
+
+![Task 3.3: breathing LED on D3](drivers/timer/task3_3.gif)
+
 See [`drivers/timer/example.cpp`](drivers/timer/example.cpp) for a runnable example and [`drivers/timer/readme.pdf`](drivers/timer/readme.pdf) for the student handout (theory, options, register mapping, lab tasks).
 
 ---
