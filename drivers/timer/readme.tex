@@ -138,6 +138,10 @@ on it.
 \code{Timer1.setDutyCycleA/B(percent)} & PWM duty cycle for each channel. \code{setDutyCycle()} is channel A \\
 \code{Timer1.compareMatchedA/B()} & Compare flag for each channel. \code{compareMatched()} is channel A \\
 \code{Timer1.setTop(top)} & Length of the PWM period in counts (default 255): $T_{\text{PWM}} = (\text{top}+1) \cdot N / F_{\text{CPU}}$ \\
+\midrule
+\multicolumn{2}{@{}l}{\emph{Timer2 (8-bit, OC pin = \code{PD7}):}} \\
+\code{Timer2.begin(mode, N, pinMode)} & All functions are the same as for \code{Timer0}. Only the prescaler list is different:
+       1, 8, 32, 64, 128, 256, 1024 (no \code{EXT\_FALLING} / \code{EXT\_RISING}) \\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -147,11 +151,12 @@ on it.
 happened after your last call. So \code{while (!Timer0.overflowed());} waits
 until the next overflow. You do not need to write 1 to \code{TIFR}.
 
-\paragraph{Interrupts (we come back to this in the interrupt lecture).} \code{onOverflow()} and
+\paragraph{Interrupts.} \code{onOverflow()} and
 \code{onCompareMatch()} turn on the interrupt and call \code{sei()} for you.
 Your function then runs automatically. Keep this function short. If it
 changes a variable that \code{main()} also uses, declare the variable as
 \code{volatile}. To turn the interrupt off again, pass \code{nullptr}.
+We come back to interrupts in the interrupt lecture.
 
 \subsection*{Driver functions and registers}
 
@@ -175,6 +180,12 @@ one of these steps for you:
 \bottomrule
 \end{tabular}}
 \end{center}
+
+For \code{Timer2} the registers are \code{TCCR2}, \code{TCNT2}, \code{OCR2} and the
+flags \code{TOV2}, \code{OCF2}, and the bits have the same places as in \code{TCCR0}.
+Only the prescaler bits are different. Example: \code{Timer2.begin(TIMER\_CTC, 32)}
+gives \code{TCCR2 = 0x0B} (\code{WGM21 CS21 CS20}). With \code{Timer0}, the same
+bits \code{CS01 CS00} mean prescaler 64. The driver chooses the right bits for you.
 
 \paragraph{Important: \code{F\_CPU} and the fuses.} All timing formulas use the
 \emph{real} clock of the chip. \code{make} and \code{make timer} always set the
