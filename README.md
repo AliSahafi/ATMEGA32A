@@ -190,7 +190,7 @@ OC pins: Timer0 = `PB3` (LED D3), Timer1 = `PD5` (A) / `PD4` (B), Timer2 = `PD7`
 | `Timer0.overflowed()` | `true` once per overflow — flag cleared for you |
 | `Timer0.compareMatched()` | `true` once per compare match — flag cleared for you |
 | `Timer0.stop()` / `start()` | Pause / resume |
-| `Timer0.onOverflow(fn)` / `onCompareMatch(fn)` | Optional: call `fn` from the interrupt |
+| `Timer0.onOverflow(fn)` / `onCompareMatch(fn)` | Call `fn` from the interrupt (covered in the interrupt lecture) |
 
 Timer1 adds channel B: `setCompareA/B`, `setDutyCycleA/B`, `compareMatchedA/B`, and `setTop(top)` to set the PWM period.
 

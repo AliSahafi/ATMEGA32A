@@ -33,8 +33,8 @@
  *   Timer0.compareMatched();       // OCFn   -- true once per compare match
  *   Timer0.stop();  Timer0.start();
  *
- *   Timer0.onOverflow(myFunction);      // optional: call a function on every
- *   Timer0.onCompareMatch(myFunction);  // overflow / compare match (interrupt)
+ *   Timer0.onOverflow(myFunction);      // call a function on every overflow /
+ *   Timer0.onCompareMatch(myFunction);  // compare match (interrupt lecture)
  *
  * Timer1 is 16-bit (counts up to 65535) and has two OC pins (A and B), so it
  * has setCompareA/B, setDutyCycleA/B, compareMatchedA/B and begin() takes a
@@ -200,7 +200,7 @@ public:
   static inline void stop() { TCCR() &= ~0x07; }
   static inline void start() { TCCR() = (TCCR() & ~0x07) | cs; }
 
-  // Optional interrupts: call `callback` on every overflow / compare match.
+  // Interrupts (covered in the interrupt lecture): call `callback` on every overflow / compare match.
   // Enables global interrupts (sei). Pass nullptr to switch it off again.
   // Callbacks run in interrupt context: keep them short, and declare
   // variables shared with main() as `volatile`.

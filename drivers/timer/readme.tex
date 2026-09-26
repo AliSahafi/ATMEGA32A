@@ -129,8 +129,8 @@ on it.
 \code{Timer0.overflowed()} & Returns \code{true} one time for each overflow. The flag is cleared for you \\
 \code{Timer0.compareMatched()} & Returns \code{true} one time for each compare match. The flag is cleared for you \\
 \code{Timer0.stop()} / \code{Timer0.start()} & Stop / continue counting. The settings do not change \\
-\code{Timer0.onOverflow(function)} & \emph{Optional:} call \code{function} on every overflow (interrupt) \\
-\code{Timer0.onCompareMatch(function)} & \emph{Optional:} call \code{function} on every compare match (interrupt) \\
+\code{Timer0.onOverflow(function)} & Call \code{function} on every overflow (interrupt, see the interrupt lecture) \\
+\code{Timer0.onCompareMatch(function)} & Call \code{function} on every compare match (interrupt, see the interrupt lecture) \\
 \midrule
 \multicolumn{2}{@{}l}{\emph{Only Timer1 (it has two OC pins: A = \code{PD5}, B = \code{PD4}):}} \\
 \code{Timer1.begin(mode, N, pinModeA, pinModeB)} & Channel B has its own \code{pinMode} \\
@@ -147,7 +147,7 @@ on it.
 happened after your last call. So \code{while (!Timer0.overflowed());} waits
 until the next overflow. You do not need to write 1 to \code{TIFR}.
 
-\paragraph{Interrupts (optional).} \code{onOverflow()} and
+\paragraph{Interrupts (we come back to this in the interrupt lecture).} \code{onOverflow()} and
 \code{onCompareMatch()} turn on the interrupt and call \code{sei()} for you.
 Your function then runs automatically. Keep this function short. If it
 changes a variable that \code{main()} also uses, declare the variable as
