@@ -88,6 +88,7 @@ Or flash the GPIO lecture example:
 make gpio       # flash drivers/gpio/example.cpp (button + LED)
 make timer      # flash drivers/timer/example.cpp (hardware blink + PWM)
 make uart       # flash drivers/uart/example.cpp (echo with ASCII code)
+make adc        # flash drivers/adc/example.cpp (voltmeter over UART)
 ```
 
 To compile without flashing:
@@ -104,6 +105,7 @@ make build SRC=path/to/file.cpp
 | [**GPIO**](drivers/gpio/) | **Active** | `OUTPUT`, `INPUT`, `INPUT_PULLUP` — per-pin or whole port at once |
 | [**Timer**](drivers/timer/) | **Active** | Timer0/1/2 — Normal, CTC and Fast PWM modes, OC pin output, flag polling or interrupts |
 | [**UART**](drivers/uart/) | **Active** | Serial communication with the PC — `write`, `print`/`println` (text and numbers), `available`/`read`, receive interrupt |
+| [**ADC**](drivers/adc/) | **Active** | 10-bit analog input on PA0–PA7 — `read` (0–1023), `read8` (0–255), `readMillivolts` |
 
 Shared constants and `F_CPU` handling live in [`drivers/common/`](drivers/common/) and are included automatically.
 
@@ -267,6 +269,39 @@ int main() {
 ```
 
 See [`drivers/uart/example.cpp`](drivers/uart/example.cpp) for a runnable example and [`drivers/uart/readme.pdf`](drivers/uart/readme.pdf) for the student handout (theory, functions, register mapping, lab tasks). Open a serial terminal at **9600 baud, 8N1**.
+
+---
+
+### ADC
+
+One ready-made object: `ADC`. Channels 0–7 are the pins `PA0`–`PA7`; the board's potentiometer is on `PA0` (channel 0).
+
+| Method | Description |
+|---|---|
+| `ADC.begin()` | Switch the ADC on. Reference = AREF (5 V on the course board), ADC clock chosen from `F_CPU` (8 MHz / 64 = 125 kHz) |
+| `ADC.read(channel)` | Measure `PA<channel>` and return 0–1023 (waits about 104 µs). The pin is made an input without pull-up for you |
+| `ADC.read8(channel)` | The same, upper 8 bits only: 0–255 — for LEDs and PWM |
+| `ADC.readMillivolts(channel)` | The same, in millivolts: 0–4995 mV |
+
+> ⚠️ On the course board VCC, AVCC and AREF are all connected to +5 V, so the driver always uses AREF and never the internal 2.56 V reference. `<avr/io.h>` uses the name `ADC` for the result register; after including `adc.hpp` that register is available as `ADCW`.
+
+#### Quick Example
+```cpp
+#define F_CPU 8000000UL
+#include "drivers/adc/adc.hpp"
+#include "drivers/gpio/gpio.hpp"
+
+int main() {
+  ADC.begin();
+  GPIO.setDirection(PORTB, ALL, OUTPUT);
+
+  while (true) {
+    GPIO.write(PORTB, ~ADC.read8(0));   // potentiometer on the LEDs (active-low)
+  }
+}
+```
+
+See [`drivers/adc/example.cpp`](drivers/adc/example.cpp) for a runnable example (a voltmeter over UART) and [`drivers/adc/readme.pdf`](drivers/adc/readme.pdf) for the student handout (theory, functions, register mapping, lab tasks).
 
 ---
 

@@ -1,0 +1,190 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.0cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+\emergencystretch=2em
+\definecolor{codebg}{gray}{0.95}
+\lstset{language=C++, basicstyle=\ttfamily\footnotesize, keywordstyle=\color{blue!70!black},
+  commentstyle=\color{green!50!black}\itshape, backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{black!20}, breaklines=true, showstringspaces=false,
+  tabsize=2, columns=flexible}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{ATmega32A Module \\ \Large ADC (Analog-to-Digital Converter)}
+\author{Ali Sahafi}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Theory}
+
+The world outside the microcontroller is \emph{analog}: a voltage can have any
+value, for example 1.37\,V. The CPU can only work with numbers. An ADC
+(\emph{Analog-to-Digital Converter}) measures a voltage and gives you a number.
+
+\paragraph{Resolution and reference.} The ATmega32A has a \textbf{10-bit} ADC.
+So the result is a number from 0 to $2^{10}-1 = 1023$. The \emph{reference
+voltage} $V_{\text{REF}}$ is the largest voltage the ADC can measure. On our
+board $V_{\text{REF}} = 5$\,V. One step of the result (1 LSB) is
+\[ 1\,\text{LSB} = \frac{V_{\text{REF}}}{1024} = \frac{5\,\text{V}}{1024} \approx 4.9\,\text{mV} \]
+and the result for an input voltage $V_{\text{IN}}$ is
+\[ \text{value} = \frac{V_{\text{IN}} \cdot 1024}{V_{\text{REF}}}
+   \qquad\qquad V_{\text{IN}} = \frac{\text{value} \cdot V_{\text{REF}}}{1024} \]
+
+\begin{center}
+\begin{tabular}{rrr}
+\toprule
+\textbf{Input voltage} & \textbf{10-bit value} & \textbf{8-bit value} \\
+\midrule
+0\,V    & 0    & 0   \\
+1.25\,V & 256  & 64  \\
+2.5\,V  & 512  & 128 \\
+3.75\,V & 768  & 192 \\
+5\,V    & 1023 & 255 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+If 8 bits are enough (for example for 8 LEDs or for PWM), we use only the
+upper 8 bits of the result: 0 to 255.
+
+\paragraph{Channels.} There is only one ADC, but it has a multiplexer with 8
+inputs: \textbf{ADC0--ADC7} on the pins \textbf{PA0--PA7}. You choose the
+channel for each measurement.
+
+\paragraph{Conversion time.} The ADC needs its own clock between 50 and
+200\,kHz for the full 10-bit accuracy. It is made from the CPU clock with a
+prescaler. One conversion takes 13 ADC clock cycles: at 125\,kHz this is about
+$104\,\mu$s.
+
+\section{How to use the driver}
+
+The driver gives you one object: \code{ADC}. You start it once with
+\code{ADC.begin()}, then you read a channel whenever you need a value.
+
+\subsection*{Functions}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Function} & \textbf{What it does} \\
+\midrule
+\code{ADC.begin()} & Switch the ADC on. Reference = AREF (5\,V on our board). The driver chooses the ADC
+       clock from \code{F\_CPU} (8\,MHz / 64 = 125\,kHz) \\
+\code{ADC.read(channel)} & Measure the voltage on \code{PA}\emph{channel} (channel 0--7) and return
+       0--1023. It waits until the conversion is finished (about $104\,\mu$s) \\
+\code{ADC.read8(channel)} & The same, but only the upper 8 bits: 0--255. Good for LEDs and PWM \\
+\code{ADC.readMillivolts(channel)} & The same, in millivolts: 0--4995\,mV \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{The pin.} \code{read()} makes the pin an \emph{input} and switches
+its pull-up resistor \emph{off}. A pull-up would change the voltage that you
+want to measure. So you do not need \code{GPIO.setDirection()} for an ADC pin.
+
+\paragraph{Reference voltage on our board.} On the course board the pins
+\code{VCC}, \code{AVCC} and \code{AREF} are all connected to +5\,V. For this
+reason the driver always uses \code{AREF} as the reference. The internal
+2.56\,V reference must not be used on this board: it would be connected to the
+5\,V on the \code{AREF} pin.
+
+\subsection*{Driver functions and registers}
+
+In the lecture slides we set the registers by hand. Each driver function does
+these steps for you:
+
+\begin{center}
+\small
+{\footnotesize\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Driver function} & \textbf{Registers} \\
+\midrule
+\code{ADC.begin()} & \code{ADMUX = 0;} \quad (\code{REFS1:0} = 00: AREF; \code{ADLAR} = 0) \\
+                   & \code{ADCSRA = (1<{}<ADEN) | (1<{}<ADPS2) | (1<{}<ADPS1);} \quad (prescaler 64 at 8\,MHz) \\
+\code{ADC.read(0)} & \code{DDRA \&= \textasciitilde(1<{}<PA0); PORTA \&= \textasciitilde(1<{}<PA0);} \quad (input, no pull-up) \\
+                   & \code{ADMUX = (ADMUX \& 0xE0) | 0;} \quad (\code{MUX4:0} = channel) \\
+                   & \code{ADCSRA |= (1<{}<ADSC); while (ADCSRA \& (1<{}<ADSC));} \\
+                   & \code{return ADCW;} \quad (\code{ADCL} first, then \code{ADCH}) \\
+\code{ADC.read8(0)} & \code{ADC.read(0) >{}> 2} \quad (the same as \code{ADLAR} = 1 and reading only \code{ADCH}) \\
+\code{ADC.readMillivolts(0)} & \code{ADC.read(0) * 5000 / 1024} \\
+\bottomrule
+\end{tabular}}
+\end{center}
+
+\newpage
+\section{Example: a small voltmeter}
+
+\paragraph{Board hardware.}
+\begin{itemize}
+  \item \textbf{Potentiometer} R13 (10\,k$\Omega$) on \code{PA0} = \textbf{ADC0}.
+        Turn it to change the voltage on \code{PA0} from 0 to 5\,V.
+  \item \textbf{8 LEDs (D0--D7) on PORTB}, active-low: \code{LOW} = ON. LED \textbf{D3} is
+        on \code{PB3} = \code{OC0}, the PWM output of Timer0.
+  \item \textbf{USB-UART} (FT232) on \code{PD0}/\code{PD1}: open a serial terminal with
+        9600 baud, 8N1 (see the UART handout).
+\end{itemize}
+
+\paragraph{Build and upload.} \code{make adc}. Open the terminal and turn the
+potentiometer. You see for example \code{ADC = 759   (3706 mV)}.
+
+\lstinputlisting{example.cpp}
+
+\newpage
+\section{Laboratory Tasks}
+\setlength{\parindent}{0pt}\setlength{\parskip}{5pt}\raggedright
+
+For each task, make a new \code{.cpp} file in the main project folder (for
+example \code{Task1.cpp}). Start the file with \code{\#define F\_CPU 8000000UL}.
+Then include the drivers you need: \code{drivers/adc/adc.hpp},
+\code{drivers/gpio/gpio.hpp}, \code{drivers/timer/timer.hpp},
+\code{drivers/uart/uart.hpp}. Upload it with \code{make SRC=Task1.cpp}.
+
+\subsection*{Task 1: Potentiometer on the LEDs (25 min)}
+Read the potentiometer (channel 0) and show the value on the 8 LEDs on
+\code{PORTB}. Use \code{ADC.read8(0)}, because there are only 8 LEDs. The LEDs
+are active-low, so write the inverted value:
+\mbox{\code{GPIO.write(PORTB, \textasciitilde value)}}.
+
+Turn the potentiometer from one end to the other. Which LEDs are on at the
+two ends? Which value do you read in the middle?
+
+\subsection*{Task 2: Potentiometer Sets the LED Brightness (20 min)}
+Use the potentiometer to set the brightness of LED \textbf{D3}
+(\code{PB3} = \code{OC0}):
+\begin{enumerate}
+  \item Start \code{Timer0} in \code{TIMER\_FAST\_PWM} mode with
+        \code{PWM\_INVERTING} (the LED is active-low), as in the timer lesson.
+  \item In the loop, read the potentiometer with \code{ADC.read8(0)} and write
+        the value with \code{Timer0.setCompare()}.
+\end{enumerate}
+Now the potentiometer works like a light dimmer.
+
+\subsection*{Assignment: Find the Cross Voltage}
+The pin \code{PA0} can be read in two ways: as an \emph{analog} value with the
+ADC, and as a \emph{digital} value (0 or 1) with \code{GPIO.read(PINA, PA0)}.
+At some input voltage the digital value changes from 0 to 1. Find this
+\emph{cross voltage}.
+\begin{enumerate}
+  \item In the loop, read both values of \code{PA0}:
+        \code{ADC.readMillivolts(0)} and \code{GPIO.read(PINA, PA0)}.
+  \item Send both to the PC with the UART (Lesson 6), for example
+        \code{3706 mV -> 1}, about 10 times per second.
+  \item Turn the potentiometer \emph{slowly} from 0\,V up to 5\,V. At which
+        voltage does the digital value change from 0 to 1?
+  \item Now turn it slowly back down. At which voltage does it change from 1
+        to 0? Is it the same voltage? Compare your results with the input
+        voltages $V_{\text{IL}}$ and $V_{\text{IH}}$ in the datasheet
+        (\emph{Electrical Characteristics}).
+\end{enumerate}
+
+\end{document}
