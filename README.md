@@ -87,6 +87,7 @@ Or flash the GPIO lecture example:
 ```bash
 make gpio       # flash drivers/gpio/example.cpp (button + LED)
 make timer      # flash drivers/timer/example.cpp (hardware blink + PWM)
+make uart       # flash drivers/uart/example.cpp (echo with ASCII code)
 ```
 
 To compile without flashing:
@@ -102,6 +103,7 @@ make build SRC=path/to/file.cpp
 |---|---|---|
 | [**GPIO**](drivers/gpio/) | **Active** | `OUTPUT`, `INPUT`, `INPUT_PULLUP` — per-pin or whole port at once |
 | [**Timer**](drivers/timer/) | **Active** | Timer0/1/2 — Normal, CTC and Fast PWM modes, OC pin output, flag polling or interrupts |
+| [**UART**](drivers/uart/) | **Active** | Serial communication with the PC — `write`, `print`/`println` (text and numbers), `available`/`read`, receive interrupt |
 
 Shared constants and `F_CPU` handling live in [`drivers/common/`](drivers/common/) and are included automatically.
 
@@ -220,6 +222,51 @@ The breathing LED from the lab tasks: LED D3 fades from 0 % to 100 % and back, o
 ![Task 3.3: breathing LED on D3](drivers/timer/task3_3.gif)
 
 See [`drivers/timer/example.cpp`](drivers/timer/example.cpp) for a runnable example and [`drivers/timer/readme.pdf`](drivers/timer/readme.pdf) for the student handout (theory, options, register mapping, lab tasks).
+
+---
+
+### UART
+
+One ready-made object: `UART`. Pins RXD = `PD0`, TXD = `PD1`, connected to the FT232 USB-UART chip on the board, so the PC sees a serial port (Windows `COMx`, macOS `/dev/cu.usbserial-…`, Linux `/dev/ttyUSB0`).
+
+```cpp
+UART.begin(9600);                        // 9600 baud, 8N1
+UART.begin(9600, UART_PARITY_EVEN, 2);   // with parity and 2 stop bits
+```
+
+| Method | Description |
+|---|---|
+| `UART.begin(baud, parity, stopBits)` | Start the UART. `parity`: `UART_PARITY_NONE` (default), `UART_PARITY_EVEN`, `UART_PARITY_ODD`; `stopBits`: `1` (default) or `2`. The driver calculates UBRR from `F_CPU` |
+| `UART.write(byte)` | Send one byte exactly as it is |
+| `UART.print(x)` / `UART.println(x)` | Send text, a character, or a number **as text** (`print(65)` sends `"65"`); `println` adds `\r\n` |
+| `UART.available()` | `true` if a received byte is waiting — does not wait |
+| `UART.read()` | Wait for a byte and return it |
+| `UART.onReceive(fn)` | Call `fn(byte)` for every received byte (interrupt, see the interrupt lecture) |
+
+At 8 MHz use 9600–38400 baud (0.2 % error). 57600 and 115200 are more than 2 % off.
+
+#### Quick Example
+```cpp
+#define F_CPU 8000000UL
+#include "drivers/uart/uart.hpp"
+
+int main() {
+  UART.begin(9600);
+  UART.println("Hello from the ATmega32A!");
+
+  while (true) {
+    if (UART.available()) {        // a byte has arrived
+      uint8_t c = UART.read();
+      UART.print("You typed: ");
+      UART.write(c);               // the character itself
+      UART.print(" = ");
+      UART.println(c);             // its ASCII code as text
+    }
+  }
+}
+```
+
+See [`drivers/uart/example.cpp`](drivers/uart/example.cpp) for a runnable example and [`drivers/uart/readme.pdf`](drivers/uart/readme.pdf) for the student handout (theory, functions, register mapping, lab tasks). Open a serial terminal at **9600 baud, 8N1**.
 
 ---
 

@@ -1,0 +1,288 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.0cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+\emergencystretch=2em
+\definecolor{codebg}{gray}{0.95}
+\lstset{language=C++, basicstyle=\ttfamily\footnotesize, keywordstyle=\color{blue!70!black},
+  commentstyle=\color{green!50!black}\itshape, backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{black!20}, breaklines=true, showstringspaces=false,
+  tabsize=2, columns=flexible}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{ATmega32A Module \\ \Large UART (Serial Communication)}
+\author{Ali Sahafi}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Theory}
+
+UART (\emph{Universal Asynchronous Receiver and Transmitter}) sends data one
+bit after the other. It uses one wire to send (\code{TXD}) and one wire to
+receive (\code{RXD}), so it can send and receive at the same time (full
+duplex). There is \emph{no clock wire}. For this reason, both sides must
+use the same settings before they start:
+
+\begin{itemize}
+  \item the same \textbf{speed} (the \emph{baud rate}, in bits per second), and
+  \item the same \textbf{frame}: how many data bits, parity or no parity, and
+        how many stop bits.
+\end{itemize}
+
+\paragraph{The frame.} When nothing is sent, the line is HIGH (idle). Every
+byte is sent as one frame:
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Start bit} & \textbf{Data bits} & \textbf{Parity bit} & \textbf{Stop bit(s)} \\
+\midrule
+always 0 (LOW) & 8 bits, LSB first & optional & always 1 (HIGH), 1 or 2 bits \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The most common setting is \textbf{8N1}: 8 data bits, \textbf{N}o parity,
+\textbf{1} stop bit. So one byte needs 10 bits on the wire.
+
+\paragraph{Baud rate.} At 9600 baud, one bit takes $1/9600 \approx 104\,\mu$s.
+The AVR makes the baud rate from the CPU clock with the register \code{UBRR}:
+\[ \text{UBRR} = \frac{F_{\text{CPU}}}{16 \cdot \text{Baud}} - 1 \qquad\qquad
+   \text{Baud} = \frac{F_{\text{CPU}}}{16 \cdot (\text{UBRR} + 1)} \]
+\code{UBRR} must be a whole number, so the real baud rate is a little
+different from the one you want. The error should be smaller than about 2\,\%.
+At 8\,MHz:
+
+\begin{center}
+\begin{tabular}{rrrl}
+\toprule
+\textbf{Wanted baud} & \textbf{UBRR} & \textbf{Real baud} & \textbf{Error} \\
+\midrule
+4800   & 103 & 4808   & 0.2\,\% \\
+9600   & 51  & 9615   & 0.2\,\% \quad (we use this) \\
+19200  & 25  & 19231  & 0.2\,\% \\
+38400  & 12  & 38462  & 0.2\,\% \\
+57600  & 16 (double speed) & 58824  & 2.1\,\% \quad (too high) \\
+115200 & 8 (double speed)  & 111111 & $-3.5$\,\% \quad (too high, does not work well) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{ASCII.} UART sends bytes (numbers 0--255). To send \emph{text}, every
+character has a number: the ASCII code. For example \code{'A'} = 65,
+\code{'a'} = 97, \code{'0'} = 48, \code{'1'} = 49, new line \code{'\textbackslash n'} = 10,
+carriage return \code{'\textbackslash r'} = 13. A terminal program on the PC shows
+each received byte as the character with that code. So if you send the
+\emph{byte} 65, the terminal shows \code{A}. If you want the terminal to show
+the \emph{number} 65, you must send the two characters \code{'6'} and \code{'5'}.
+
+\section{How to use the driver}
+
+The driver gives you one object: \code{UART}. You start it with one function call:
+
+\begin{lstlisting}
+UART.begin(9600);                        // 9600 baud, 8N1
+UART.begin(9600, UART_PARITY_EVEN, 2);   // 9600 baud, 8 data bits, even parity, 2 stop bits
+\end{lstlisting}
+
+\subsection*{The options}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Argument} & \textbf{Value} & \textbf{Meaning} \\
+\midrule
+\code{baudRate} & \code{9600}, \code{19200}, \dots & Speed in bits per second. Write the number you want.
+      The driver calculates \code{UBRR} for you. \\
+\midrule
+\code{parity}   & \code{UART\_PARITY\_NONE} (default) & No parity bit \\
+                & \code{UART\_PARITY\_EVEN}           & Even parity: the number of 1s (data + parity) is even \\
+                & \code{UART\_PARITY\_ODD}            & Odd parity: the number of 1s (data + parity) is odd \\
+\midrule
+\code{stopBits} & \code{1} (default), \code{2} & Number of stop bits \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The driver always uses 8 data bits. The other side (for example the terminal
+program on the PC) must use the \emph{same} settings.
+
+\subsection*{Functions}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Function} & \textbf{What it does} \\
+\midrule
+\code{UART.begin(baud, parity, stopBits)} & Set up and start the UART (see the options above) \\
+\midrule
+\code{UART.write(byte)} & Send one byte exactly as it is. \code{UART.write(65)} sends the byte 65, and the terminal shows \code{A} \\
+\code{UART.print("text")} & Send text \\
+\code{UART.print('A')} & Send one character \\
+\code{UART.print(number)} & Send a number \emph{as text}: \code{UART.print(65)} sends the two characters \code{6} and \code{5}.
+       Works for all integer types and for \code{float} (2 decimals; \code{UART.print(x, 4)} gives 4) \\
+\code{UART.println(...)} & Same as \code{print()}, then a new line. \code{UART.println()} sends only the new line \\
+\midrule
+\code{UART.available()} & Returns \code{true} if a received byte is waiting. It does not wait \\
+\code{UART.read()} & Waits until a byte has arrived, then returns it \\
+\midrule
+\code{UART.onReceive(function)} & Call \code{function(byte)} for every received byte (interrupt, see the interrupt lecture) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{\code{write()} or \code{print()}?} Use \code{write()} to send raw
+data (one byte, any value 0--255). Use \code{print()} and \code{println()} to
+send text that a person reads in the terminal.
+
+\paragraph{Waiting or not waiting.} \code{UART.read()} \emph{waits} until a byte
+arrives: your program stops on this line until the user types something. If
+the program must do other work at the same time, first ask
+\code{UART.available()}, and only call \code{read()} when it returns \code{true}:
+\begin{lstlisting}
+if (UART.available()) {          // something has arrived?
+  uint8_t data = UART.read();    // then read it (no waiting)
+  ...
+}
+\end{lstlisting}
+
+\paragraph{Interrupts (we come back to this in the interrupt lecture).}
+\code{onReceive()} turns on the receive interrupt and calls \code{sei()} for
+you. Your function then runs automatically for every received byte. Keep this
+function short. If it changes a variable that \code{main()} also uses, declare
+the variable as \code{volatile}. To turn the interrupt off again, pass
+\code{nullptr}.
+
+\subsection*{Driver functions and registers}
+
+In the lecture slides we set the registers by hand. Each driver function does
+these steps for you:
+
+\begin{center}
+\small
+{\footnotesize\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Driver function} & \textbf{Registers} \\
+\midrule
+\code{UART.begin(9600)} & \code{UBRRH = 0; UBRRL = 51;} \quad (UBRR = 8\,MHz / (16 $\cdot$ 9600) $-$ 1) \\
+                        & \code{UCSRC = (1<{}<URSEL) | (1<{}<UCSZ1) | (1<{}<UCSZ0);} \quad (8N1) \\
+                        & \code{UCSRB = (1<{}<RXEN) | (1<{}<TXEN);} \\
+\code{UART.begin(9600, UART\_PARITY\_EVEN, 2)} & in \code{UCSRC} also: \code{UPM1} = 1 (even parity), \code{USBS} = 1 (2 stop bits) \\
+\code{UART.write(x)} & \code{while (!(UCSRA \& (1<{}<UDRE)));  UDR = x;} \\
+\code{UART.available()} & \code{UCSRA \& (1<{}<RXC)} \\
+\code{UART.read()} & \code{while (!(UCSRA \& (1<{}<RXC)));  return UDR;} \\
+\code{UART.onReceive(f)} & \code{UCSRB |= (1<{}<RXCIE); sei();} \\
+\bottomrule
+\end{tabular}}
+\end{center}
+
+\paragraph{Double speed.} If the normal \code{UBRR} gives an error of more than
+1\,\%, the driver tries the double-speed mode (\code{U2X} in \code{UCSRA},
+$\text{UBRR} = F_{\text{CPU}} / (8 \cdot \text{Baud}) - 1$) and uses it if the
+error is smaller. At 8\,MHz this only happens for 57600 and 115200 baud.
+
+\newpage
+\section{Example: echo with ASCII code}
+
+\paragraph{Board hardware.} The UART pins \code{PD0} (\code{RXD}) and \code{PD1}
+(\code{TXD}) are connected to the \textbf{FT232} chip on the board. This chip
+is a USB-to-UART converter. When you connect the board's USB cable to the PC,
+the PC gets a new serial port (a \emph{virtual COM port}):
+\begin{itemize}
+  \item \textbf{Windows:} \code{COM3}, \code{COM4}, \dots\ (see \emph{Device Manager $\rightarrow$ Ports}).
+  \item \textbf{macOS:} \code{/dev/cu.usbserial-...}
+  \item \textbf{Linux:} \code{/dev/ttyUSB0}
+\end{itemize}
+You also need the LEDs (D0--D7 on \code{PORTB}, active-low: \code{LOW} = ON)
+for Task 1.
+
+\paragraph{Serial terminal.} To see the data on the PC, you need a terminal
+program, for example the \emph{Serial Monitor} extension in VS Code, CoolTerm
+or PuTTY. Choose the serial port of the board and these settings:
+\textbf{9600 baud, 8 data bits, no parity, 1 stop bit (8N1)}, no flow control.
+
+\paragraph{Build and upload.} \code{make uart}. Then open the terminal and type
+a character, for example \code{A}. The board answers
+\code{You typed: A  (ASCII 65)}.
+
+\lstinputlisting{example.cpp}
+
+\newpage
+\section{Laboratory Tasks}
+\setlength{\parindent}{0pt}\setlength{\parskip}{5pt}
+
+For each task, make a new \code{.cpp} file in the main project folder (for
+example \code{Task1.cpp}). Start the file with \code{\#define F\_CPU 8000000UL}.
+Then include the drivers you need: \code{drivers/uart/uart.hpp},
+\code{drivers/gpio/gpio.hpp}, \code{drivers/timer/timer.hpp}. Upload it with
+\code{make SRC=Task1.cpp}. Use 9600 baud (8N1) in all tasks.
+
+\subsection*{Task 1: Send and Receive Bytes (20 min)}
+\begin{itemize}
+  \item \textbf{Task 1.1 (Send):} Send the numbers 0 to 255 to the PC, one number
+        every second. Use \code{UART.write(number)} and \code{\_delay\_ms(1000)}.
+        Look at the data in the terminal. What do you see? Then switch the
+        terminal to show the received bytes in HEX (for example in CoolTerm).
+        Now what do you see? (The ASCII part of the lecture explains the difference.)
+  \item \textbf{Task 1.2 (Receive):} Wait for a byte from the PC with
+        \code{UART.read()} and show it on the 8 LEDs on \code{PORTB}. The LEDs are
+        active-low, so write the inverted value:
+        \mbox{\code{GPIO.write(PORTB, \textasciitilde data)}}. Type the character \code{A}
+        in the terminal. Which LEDs are on? Compare with the ASCII code of \code{A}
+        in binary. Try \code{a} and \code{1} too.
+\end{itemize}
+
+\subsection*{Task 2: Send Your Name (ASCII Text)}
+Send your name to the PC, one time every second. Do it in two steps:
+\begin{enumerate}
+  \item First send only one character every second, for example
+        \code{UART.print('A')}.
+  \item Then send your whole name and a new line with
+        \code{UART.println("Your Name")}.
+\end{enumerate}
+\code{println()} adds the characters \code{'\textbackslash r'} and
+\code{'\textbackslash n'}, so every name starts on a new line in the terminal.
+
+\subsection*{Assignment: Send and Receive at the Same Time}
+Write one program that does two things at the same time:
+\begin{itemize}
+  \item It sends the numbers 0 to 255 to the PC as text with
+        \code{UART.println(number)}, one number every second.
+  \item It shows every byte that it receives from the PC on the LEDs on
+        \code{PORTB} (active-low).
+\end{itemize}
+Rules:
+\begin{itemize}
+  \item Use \code{Timer0} \emph{without interrupts} for the 1 second, for example
+        with a 10\,ms tick in \code{TIMER\_CTC} mode and
+        \code{Timer0.compareMatched()} (see the timer handout). Count 100 ticks
+        for one second. Do \emph{not} use \code{\_delay\_ms()}.
+  \item Check for received data all the time with \code{UART.available()}.
+        Do \emph{not} call \code{UART.read()} without asking
+        \code{UART.available()} first, or the program stops and waits.
+\end{itemize}
+
+The main loop then looks like this:
+\begin{lstlisting}
+while (true) {
+  if (Timer0.compareMatched()) {   // 10 ms have passed
+    ...                            // count ticks; after 100 ticks send the next number
+  }
+  if (UART.available()) {          // a byte has arrived
+    ...                            // read it and show it on the LEDs
+  }
+}
+\end{lstlisting}
+
+\end{document}
