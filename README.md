@@ -181,7 +181,7 @@ Timer0.begin(mode, prescaler, pinMode);  // timer + drive its OC pin
 | Argument | Values |
 |---|---|
 | `mode` | `TIMER_NORMAL` (count to max, overflow) · `TIMER_CTC` (count to compare value, restart) · `TIMER_FAST_PWM` |
-| `prescaler` | The divider itself: `1`, `8`, `64`, `256`, `1024` (Timer2 also `32`, `128`) · `EXT_FALLING` / `EXT_RISING` count pulses on T0/T1 |
+| `prescaler` | The divider itself: `1`, `8`, `64`, `256`, `1024` (Timer2 also `32`, `128`) · `EXT_FALLING` / `EXT_RISING` count pulses on T0/T1. Any other value is a compile error |
 | `pinMode` | Normal/CTC: `OC_OFF` (default), `OC_TOGGLE`, `OC_CLEAR`, `OC_SET` · PWM: `PWM_NON_INVERTING`, `PWM_INVERTING` |
 
 OC pins: Timer0 = `PB3` (LED D3), Timer1 = `PD5` (A) / `PD4` (B), Timer2 = `PD7` — made outputs automatically.

@@ -91,7 +91,8 @@ Timer0.begin(mode, prescaler, pinMode);   // start the timer and use the OC pin
             & \code{TIMER\_FAST\_PWM} & Count from 0 to 255, the OC pin gives a PWM signal \\
 \midrule
 \code{prescaler} & \code{1}, \code{8}, \code{64}, \code{256}, \code{1024} &
-      Write the number you want to divide by. Timer2 can also use \code{32} and \code{128}. \\
+      Write the number you want to divide by. Timer2 can also use \code{32} and \code{128}.
+      Any other number is a \textbf{compile error} (see below). \\
       & \code{EXT\_FALLING}, \code{EXT\_RISING} &
       Only Timer0 and Timer1: count pulses on pin \code{T0}\,=\,\code{PB0} or \code{T1}\,=\,\code{PB1} (counter mode) \\
 \midrule
@@ -107,6 +108,14 @@ Timer0.begin(mode, prescaler, pinMode);   // start the timer and use the OC pin
 \bottomrule
 \end{tabularx}
 \end{center}
+
+\paragraph{A wrong prescaler is a compile error.} If you write a prescaler that
+the timer does not have, for example \code{Timer0.begin(TIMER\_NORMAL, 1000)},
+\code{make} stops with an error that points to your line:
+\begin{lstlisting}[language={},basicstyle=\ttfamily\scriptsize]
+inlined from 'int main()' at Task1.cpp:7:15:
+error: ... Timer0: prescaler must be 1, 8, 64, 256, 1024, EXT_FALLING or EXT_RISING
+\end{lstlisting}
 
 If \code{pinMode} is not \code{OC\_OFF}, the driver makes the OC pin an output
 for you. While the timer controls this pin, \code{GPIO.write()} has no effect

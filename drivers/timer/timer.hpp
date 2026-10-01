@@ -18,6 +18,8 @@
  *                 Timer2         : 1, 8, 32, 64, 128, 256, 1024
  *                 (Timer0/Timer1 also accept EXT_FALLING / EXT_RISING to
  *                  count pulses on pin T0 = PB0 / T1 = PB1 instead)
+ *                 Any other number is a compile error, for example:
+ *                 "Timer0: prescaler must be 1, 8, 64, 256, 1024, ..."
  *
  *     pinMode   : what the OC pin does (optional, default OC_OFF)
  *                 NORMAL / CTC : OC_OFF, OC_TOGGLE, OC_CLEAR, OC_SET
@@ -98,6 +100,18 @@ static inline uint8_t csBits2(uint16_t prescaler) { // Timer2
   }
 }
 
+// Compile-time check of the prescaler. If begin() gets a number that the
+// timer does not support, for example Timer0.begin(TIMER_CTC, 100), the
+// build stops with one of these messages. (GCC: a call to a function with
+// the "error" attribute that is not removed by the optimiser is a compile
+// error. A valid prescaler removes the call, so it costs nothing.)
+void prescalerErrorTimer0() __attribute__((error(
+    "Timer0: prescaler must be 1, 8, 64, 256, 1024, EXT_FALLING or EXT_RISING")));
+void prescalerErrorTimer1() __attribute__((error(
+    "Timer1: prescaler must be 1, 8, 64, 256, 1024, EXT_FALLING or EXT_RISING")));
+void prescalerErrorTimer2() __attribute__((error(
+    "Timer2: prescaler must be 1, 8, 32, 64, 128, 256 or 1024")));
+
 // Duty cycle 0..100 % -> compare value for an 8-bit (TOP = 255) PWM.
 // In both PWM modes the pin is "active" for (compare + 1) / 256 of the
 // period: HIGH for PWM_NON_INVERTING, LOW for PWM_INVERTING.
@@ -134,12 +148,17 @@ public:
   static void (*compareCallback)();
 
   // Configure and start the timer. See the top of this file for options.
-  static inline void begin(uint8_t timerMode, uint16_t prescaler,
-                           uint8_t ocPinMode = OC_OFF) {
+  // An unsupported prescaler (written as a number) is a compile error.
+  static inline __attribute__((always_inline)) void
+  begin(uint8_t timerMode, uint16_t prescaler, uint8_t ocPinMode = OC_OFF) {
     mode = timerMode;
     pinMode = ocPinMode;
     cs = (N == 0) ? timer_detail::csBits01(prescaler)
                   : timer_detail::csBits2(prescaler);
+    if (__builtin_constant_p(prescaler) && cs == 0) {
+      if (N == 0) timer_detail::prescalerErrorTimer0();
+      else timer_detail::prescalerErrorTimer2();
+    }
 
     uint8_t wgm = 0;                                  // TIMER_NORMAL
     if (mode == TIMER_CTC) wgm = (1 << 3);            // WGMn1
@@ -262,13 +281,16 @@ public:
 
   // Configure and start Timer1. pinModeA drives OC1A (PD5), pinModeB OC1B (PD4).
   // CTC counts up to the channel-A compare value (setCompareA).
-  static inline void begin(uint8_t timerMode, uint16_t prescaler,
-                           uint8_t ocPinModeA = OC_OFF,
-                           uint8_t ocPinModeB = OC_OFF) {
+  // An unsupported prescaler (written as a number) is a compile error.
+  static inline __attribute__((always_inline)) void
+  begin(uint8_t timerMode, uint16_t prescaler, uint8_t ocPinModeA = OC_OFF,
+        uint8_t ocPinModeB = OC_OFF) {
     mode = timerMode;
     pinModeA = ocPinModeA;
     pinModeB = ocPinModeB;
     cs = timer_detail::csBits01(prescaler);
+    if (__builtin_constant_p(prescaler) && cs == 0)
+      timer_detail::prescalerErrorTimer1();
 
     uint8_t wgmA = 0, wgmB = 0;                     // TIMER_NORMAL (mode 0)
     if (mode == TIMER_CTC) wgmB = (1 << WGM12);     // mode 4, TOP = OCR1A
