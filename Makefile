@@ -7,6 +7,7 @@
 #   make adc                 build + flash drivers/adc/example.cpp
 #   make interrupt           build + flash drivers/interrupt/example.cpp
 #   make build SRC=file.cpp  compile + hex only, no flashing
+#                            (SRC may be in a subfolder, e.g. W5_Tasks/Task1.cpp)
 #
 # Fuse targets: int-1mhz, int-2mhz, int-4mhz, int-8mhz, ext-xtal
 
@@ -22,7 +23,7 @@ clean:
 	rm -f main.bin main.hex
 
 build:
-	avr-g++ -mmcu=atmega32 -Os -Dnullptr=0 -o main.bin $(SRC)
+	avr-g++ -mmcu=atmega32 -Os -Dnullptr=0 -I. -o main.bin $(SRC)
 	avr-objcopy -j .text -j .data -O ihex main.bin main.hex
 
 flash:
