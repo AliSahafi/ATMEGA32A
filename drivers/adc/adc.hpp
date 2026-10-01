@@ -15,6 +15,10 @@
  *   ADC.read8(0);             // -> 0..255 (upper 8 bits), for LEDs and PWM
  *   ADC.readMillivolts(0);    // -> 0..4995 mV
  *
+ *   ADC.onComplete(myFunction);  // interrupt: myFunction(value) is called
+ *   ADC.start(0);                // when this conversion is finished;
+ *                                // start() does not wait (interrupt lecture)
+ *
  * Every read waits for one conversion (about 100 us at 8 MHz). The driver
  * makes the pin an input without pull-up for you. While the ADC is off
  * (before enable() or after disable()), every read returns 0.
@@ -48,7 +52,7 @@ public:
   // 200 kHz or less (8 MHz / 64 = 125 kHz).
   static inline void enable() {
     ADMUX = 0; // REFS1:0 = 00 -> AREF, ADLAR = 0, channel 0
-    ADCSRA = (1 << ADEN) | prescalerBits();
+    ADCSRA = (1 << ADEN) | (ADCSRA & (1 << ADIE)) | prescalerBits(); // keep ADIE
   }
 
   // Switch the ADC off (ADEN = 0). It then uses no power. Call enable() to
@@ -69,6 +73,31 @@ public:
     while (ADCSRA & (1 << ADSC))      // ADSC goes back to 0 when it is done
       ;
     return ADCW; // reads ADCL first, then ADCH
+  }
+
+  // Start one conversion on PA<channel> and return at once (no waiting).
+  // When it is finished, the function given to onComplete() gets the value.
+  // Does nothing while the ADC is off.
+  static inline void start(uint8_t channel) {
+    if (!(ADCSRA & (1 << ADEN)))
+      return;
+    channel &= 0x07;
+    DDRA &= ~(1 << channel);
+    PORTA &= ~(1 << channel);
+    ADMUX = (ADMUX & 0xE0) | channel;
+    ADCSRA |= (1 << ADSC);
+  }
+
+  // Interrupts (covered in the interrupt lecture): call `callback(value)`
+  // (value = 0..1023) when a conversion is finished. Enables global
+  // interrupts (sei). Pass nullptr to switch it off. Use either read() or
+  // start() + onComplete(), not both at the same time.
+  static void (*completeCallback)(uint16_t);
+  static inline void onComplete(void (*callback)(uint16_t)) {
+    completeCallback = callback;
+    if (callback) ADCSRA |= (1 << ADIE);
+    else ADCSRA &= ~(1 << ADIE);
+    sei();
   }
 
   // Same measurement, only the upper 8 bits: 0..255.
@@ -94,6 +123,13 @@ private:
   }
 };
 
+__attribute__((weak)) void (*ADC_Driver::completeCallback)(uint16_t) = nullptr;
+
 static ADC_Driver ADC __attribute__((unused));
+
+// Conversion-complete interrupt: only does something after onComplete()
+ISR(ADC_vect) {
+  if (ADC.completeCallback) ADC.completeCallback(ADCW);
+}
 
 #endif // ATMEGA32A_ADC_HPP

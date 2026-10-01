@@ -5,12 +5,13 @@
 #   make timer               build + flash drivers/timer/example.cpp
 #   make uart                build + flash drivers/uart/example.cpp
 #   make adc                 build + flash drivers/adc/example.cpp
+#   make interrupt           build + flash drivers/interrupt/example.cpp
 #   make build SRC=file.cpp  compile + hex only, no flashing
 #
 # Fuse targets: int-1mhz, int-2mhz, int-4mhz, int-8mhz, ext-xtal
 
 SRC ?= main.cpp
-MODULES = gpio timer uart adc
+MODULES = gpio timer uart adc interrupt
 
 .PHONY: main build flash clean $(MODULES) int-1mhz int-2mhz int-4mhz int-8mhz ext-xtal
 

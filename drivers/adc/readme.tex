@@ -90,6 +90,10 @@ switches it off again, so it uses no power.
        0--1023. It waits until the conversion is finished (about $104\,\mu$s) \\
 \code{ADC.read8(channel)} & The same, but only the upper 8 bits: 0--255. Good for LEDs and PWM \\
 \code{ADC.readMillivolts(channel)} & The same, in millivolts: 0--4995\,mV \\
+\midrule
+\multicolumn{2}{@{}l}{\emph{With interrupts (see the interrupt lecture):}} \\
+\code{ADC.start(channel)} & Start one conversion and return at once (no waiting) \\
+\code{ADC.onComplete(function)} & Call \code{function(value)} when a conversion is finished (value 0--1023) \\
 \bottomrule
 \end{tabularx}
 \end{center}

@@ -89,6 +89,7 @@ make gpio       # flash drivers/gpio/example.cpp (button + LED)
 make timer      # flash drivers/timer/example.cpp (hardware blink + PWM)
 make uart       # flash drivers/uart/example.cpp (echo with ASCII code)
 make adc        # flash drivers/adc/example.cpp (voltmeter over UART)
+make interrupt  # flash drivers/interrupt/example.cpp (button S11 counter)
 ```
 
 To compile without flashing:
@@ -106,6 +107,7 @@ make build SRC=path/to/file.cpp
 | [**Timer**](drivers/timer/) | **Active** | Timer0/1/2 — Normal, CTC and Fast PWM modes, OC pin output, flag polling or interrupts |
 | [**UART**](drivers/uart/) | **Active** | Serial communication with the PC — `write`, `print`/`println` (text and numbers), `available`/`read`, receive interrupt |
 | [**ADC**](drivers/adc/) | **Active** | 10-bit analog input on PA0–PA7 — `read` (0–1023), `read8` (0–255), `readMillivolts` |
+| [**Interrupt**](drivers/interrupt/) | **Active** | External interrupts INT0/INT1/INT2 with optional button debounce; overview of all interrupt functions |
 
 Shared constants and `F_CPU` handling live in [`drivers/common/`](drivers/common/) and are included automatically.
 
@@ -283,6 +285,7 @@ One ready-made object: `ADC`. Channels 0–7 are the pins `PA0`–`PA7`; the boa
 | `ADC.read(channel)` | Measure `PA<channel>` and return 0–1023 (waits about 104 µs). The pin is made an input without pull-up for you |
 | `ADC.read8(channel)` | The same, upper 8 bits only: 0–255 — for LEDs and PWM |
 | `ADC.readMillivolts(channel)` | The same, in millivolts: 0–4995 mV |
+| `ADC.start(channel)` / `ADC.onComplete(fn)` | Start a conversion without waiting / call `fn(value)` when it is finished (interrupt) |
 
 > ⚠️ On the course board VCC, AVCC and AREF are all connected to +5 V, so the driver always uses AREF and never the internal 2.56 V reference. `<avr/io.h>` uses the name `ADC` for the result register; after including `adc.hpp` that register is available as `ADCW`.
 
@@ -303,6 +306,40 @@ int main() {
 ```
 
 See [`drivers/adc/example.cpp`](drivers/adc/example.cpp) for a runnable example (a voltmeter over UART) and [`drivers/adc/readme.pdf`](drivers/adc/readme.pdf) for the student handout (theory, functions, register mapping, lab tasks).
+
+---
+
+### Interrupts
+
+Your interrupt function is a normal function: give it to the driver, and the driver writes the ISR, enables the interrupt and calls `sei()`.
+
+| Driver function | ISR | Your function is called … |
+|---|---|---|
+| `ExternalInterrupt.enable(INT0, when, f)` | `INT0_vect` | on an edge of PD2 (button S11); also `INT1` (PD3), `INT2` (PB2) |
+| `Timer0.onOverflow(f)` / `Timer0.onCompareMatch(f)` | `TIMER0_OVF_vect` / `TIMER0_COMP_vect` | on overflow / compare match (Timer1, Timer2 the same) |
+| `ADC.onComplete(f)` + `ADC.start(ch)` | `ADC_vect` | when a conversion is finished: `f(value)` |
+| `UART.onReceive(f)` | `USART_RXC_vect` | when a byte has arrived: `f(byte)` |
+
+External interrupts: `when` is `INT_FALLING`, `INT_RISING`, `INT_ANY_EDGE` or `INT_LOW_LEVEL` (INT2: falling/rising only). The board's buttons have no hardware debouncer, so pass a debounce time for a button: `ExternalInterrupt.enable(INT0, INT_FALLING, onPress, 20);` (20 ms). A wrong pin or edge is a compile error.
+
+#### Quick Example
+```cpp
+#define F_CPU 8000000UL
+#include "drivers/gpio/gpio.hpp"
+#include "drivers/interrupt/interrupt.hpp"
+
+volatile uint8_t count = 0;
+
+void onPress() { GPIO.write(PORTB, ~(++count)); }   // runs on every press of S11
+
+int main() {
+  GPIO.setDirection(PORTB, ALL, OUTPUT);
+  ExternalInterrupt.enable(INT0, INT_FALLING, onPress, 20);   // 20 ms debounce
+  while (true) {}                                             // nothing to do here
+}
+```
+
+See [`drivers/interrupt/example.cpp`](drivers/interrupt/example.cpp) and [`drivers/interrupt/readme.pdf`](drivers/interrupt/readme.pdf) for the student handout (theory, all interrupt functions, register mapping, lab tasks).
 
 ---
 

@@ -1,0 +1,222 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.0cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+\emergencystretch=2em
+\definecolor{codebg}{gray}{0.95}
+\lstset{language=C++, basicstyle=\ttfamily\footnotesize, keywordstyle=\color{blue!70!black},
+  commentstyle=\color{green!50!black}\itshape, backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{black!20}, breaklines=true, showstringspaces=false,
+  tabsize=2, columns=flexible}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{ATmega32A Module \\ \Large Interrupts}
+\author{Ali Sahafi}
+\date{}
+
+\begin{document}
+\maketitle
+\raggedright
+\setlength{\parindent}{0pt}\setlength{\parskip}{4pt}
+
+\section{Theory}
+
+\paragraph{Polling or interrupt?} With \emph{polling} the program asks again
+and again: ``Is the ADC finished? Has the timer overflowed? Has a byte
+arrived?'' The CPU spends its time waiting. With an \emph{interrupt} the
+peripheral tells the CPU itself when something happens. Until then the CPU is
+free to do other work.
+
+\paragraph{What happens at an interrupt.}
+\begin{enumerate}
+  \item An event happens (button edge, timer compare match, ADC finished, byte received\dots)
+        and the peripheral sets its \emph{flag}.
+  \item If this interrupt is enabled \emph{and} the global interrupt switch is on
+        (\code{sei()}), the CPU finishes the current instruction.
+  \item The CPU saves where it was and jumps to the \emph{Interrupt Service Routine} (ISR)
+        of this event. While the ISR runs, other interrupts wait.
+  \item At the end of the ISR the CPU goes back to the main program, exactly where it stopped.
+\end{enumerate}
+
+\paragraph{Vector table and priority.} The ATmega32A has 21 interrupt sources.
+Each one has a fixed address in the \emph{interrupt vector table}. If two
+interrupts come at the same time, the one with the lower address goes first
+(\code{INT0} has the highest priority).
+
+\paragraph{Rules for interrupt functions.}
+\begin{itemize}
+  \item Keep them \textbf{short}: no \code{\_delay\_ms()}, no long loops. Other interrupts wait while one runs.
+  \item A variable that the interrupt function changes and \code{main()} reads must be
+        \code{\textbf{volatile}}, for example \code{volatile uint8\_t count = 0;}
+        Without \code{volatile} the compiler may never read the new value in \code{main()}.
+\end{itemize}
+
+\section{How to use the drivers}
+
+In the drivers, your interrupt function is a \emph{normal function}. You give
+it to the driver, and the driver writes the ISR for you, enables the interrupt
+and calls \code{sei()}. All interrupt functions of the course drivers:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l l >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Driver function} & \textbf{ISR (vector)} & \textbf{Your function is called \dots} \\
+\midrule
+\code{ExternalInterrupt.enable(INT0, when, f)} & \code{INT0\_vect} & on an edge of \code{PD2} (button S11). Also \code{INT1}, \code{INT2} \\
+\code{Timer0.onOverflow(f)}                   & \code{TIMER0\_OVF\_vect}  & when Timer0 overflows \\
+\code{Timer0.onCompareMatch(f)}               & \code{TIMER0\_COMP\_vect} & on a compare match (Timer1/Timer2: the same) \\
+\code{ADC.onComplete(f)}                      & \code{ADC\_vect}          & when a conversion is finished: \code{f(value)}, value 0--1023.
+                                                                           Start a conversion with \code{ADC.start(channel)} \\
+\code{UART.onReceive(f)}                      & \code{USART\_RXC\_vect}   & when a byte has arrived: \code{f(byte)} \\
+\midrule
+\code{sei()} / \code{cli()} & & switch \emph{all} interrupts on / off (global switch) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Pass \code{nullptr} instead of a function to switch an interrupt off again
+(\code{ExternalInterrupt.disable(INT0)} for the external interrupts).
+
+\subsection*{External interrupts}
+
+\begin{lstlisting}
+ExternalInterrupt.enable(pin, when, function);              // no debounce
+ExternalInterrupt.enable(pin, when, function, debounceMs);  // for a push button
+ExternalInterrupt.disable(pin);
+\end{lstlisting}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l l >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Argument} & \textbf{Value} & \textbf{Meaning} \\
+\midrule
+\code{pin} & \code{INT0} & pin \code{PD2}: push button \textbf{S11} on the board \\
+           & \code{INT1} & pin \code{PD3} (free pin on the header) \\
+           & \code{INT2} & pin \code{PB2}: this is LED D2 on the board, so you can not use both \\
+\midrule
+\code{when} & \code{INT\_FALLING}   & HIGH $\rightarrow$ LOW: the button is \emph{pressed} \\
+            & \code{INT\_RISING}    & LOW $\rightarrow$ HIGH: the button is \emph{released} \\
+            & \code{INT\_ANY\_EDGE} & both edges (\code{INT0}, \code{INT1} only) \\
+            & \code{INT\_LOW\_LEVEL} & again and again, as long as the pin is LOW (\code{INT0}, \code{INT1} only) \\
+\midrule
+\code{debounceMs} & \code{0} (default) & no debounce: every edge calls your function \\
+                  & \code{1}--\code{255} & debounce time in ms, for example \code{20} for a push button \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\code{enable()} makes the pin an input with pull-up. A wrong pin or edge is a
+\textbf{compile error}, for example \code{ExternalInterrupt.enable(PD2, ...)}
+(you must write \code{INT0}, not \code{PD2}).
+
+\paragraph{Button bounce.} The push buttons on the board have no hardware
+debouncer. When the metal contacts close, they bounce a few times, so one press
+can make \emph{several} edges. We tested it on the board: 5 presses of S11 gave
+the counter 7 without debounce. With \code{debounceMs = 20}, 10 presses gave
+exactly 10. With a debounce time the driver waits after the first edge, forgets
+the extra edges, and calls your function only if the pin is still at the new
+level (for \code{INT\_FALLING}: still pressed). During this wait all other
+interrupts must wait too, so use it only for buttons, not for fast signals.
+
+\subsection*{Driver functions and registers}
+
+\begin{center}
+\small
+{\footnotesize\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Driver function} & \textbf{Registers} \\
+\midrule
+\code{ExternalInterrupt.enable(INT0, INT\_RISING, f)} & \code{DDRD \&= \textasciitilde(1<{}<PD2); PORTD |= (1<{}<PD2);} \\
+            & \code{MCUCR |= (1<{}<ISC01) | (1<{}<ISC00);} \quad (rising edge) \\
+            & \code{GIFR = (1<{}<INTF0); GICR |= (1<{}<INT0); sei();} \\
+\code{ExternalInterrupt.disable(INT0)} & \code{GICR \&= \textasciitilde(1<{}<INT0);} \\
+\code{Timer0.onCompareMatch(f)} & \code{TIMSK |= (1<{}<OCIE0); sei();} \\
+\code{Timer0.onOverflow(f)}     & \code{TIMSK |= (1<{}<TOIE0); sei();} \\
+\code{ADC.onComplete(f)}        & \code{ADCSRA |= (1<{}<ADIE); sei();} \\
+\code{ADC.start(0)}             & \code{ADMUX = (ADMUX \& 0xE0) | 0; ADCSRA |= (1<{}<ADSC);} \\
+\code{UART.onReceive(f)}        & \code{UCSRB |= (1<{}<RXCIE); sei();} \\
+\bottomrule
+\end{tabular}}
+\end{center}
+
+\newpage
+\section{Example: up counter with button S11}
+
+Every time button S11 is released, the interrupt adds 1 to the counter on the
+LEDs. The main loop is empty. Try it and watch the bounce: sometimes the
+counter jumps by 2 or 3. Then add a debounce time of 20\,ms as the fourth
+argument of \code{enable()} and try again.
+
+\paragraph{Build and upload.} \code{make interrupt}
+
+\lstinputlisting{example.cpp}
+
+\newpage
+\section{Laboratory Tasks}\vspace{-4pt}
+\setlength{\parskip}{2pt}\setlength{\itemsep}{0pt}
+
+For each task, make a new \code{.cpp} file in the main project folder (for
+example \code{Task1.cpp}). Start the file with \code{\#define F\_CPU 8000000UL}
+and include the drivers you need. Upload it with \code{make SRC=Task1.cpp}.
+In all tasks the main loop \code{while (true) \{ \}} stays \textbf{empty}: all
+the work is done in interrupt functions.
+
+\subsection*{Task 1: Real-Time Clock (Timer0 Interrupt)}
+Count 0 to 9 on the seven-segment display, one step every \emph{exactly} 1
+second (external 8\,MHz crystal). Use \code{Timer0} in \code{TIMER\_CTC} mode
+with prescaler 8 and a compare match interrupt:
+\begin{enumerate}
+  \item With prescaler 8, one count takes $1\,\mu$s. Choose the compare value so that
+        there is one compare match every $200\,\mu$s:
+        \code{Timer0.setCompare(...)}.
+  \item Give your tick function to \code{Timer0.onCompareMatch()}.
+  \item In the tick function, count the ticks. How many ticks are 1 second? Then show
+        the next digit with \code{SevenSeg(digit)}.
+\end{enumerate}
+Use \code{static} or \code{volatile} variables for the counters.
+
+\subsection*{Task 2: ADC Interrupt}
+Show the potentiometer on the LEDs, using the ADC interrupt instead of waiting:
+\begin{enumerate}
+  \item \code{ADC.enable()}, give your function to \code{ADC.onComplete()}, then start the
+        first conversion with \code{ADC.start(0)}.
+  \item Your function gets the value 0--1023. Show the upper 8 bits on the LEDs
+        (\code{value >{}> 2}, active-low), then start the next conversion with
+        \code{ADC.start(0)}.
+\end{enumerate}
+
+\subsection*{Task 3: UART Receive Interrupt}
+Show every byte that the PC sends on the LEDs on \code{PORTB}. Give your
+function to \code{UART.onReceive()}: it gets the received byte. Compare with
+Lesson~6, Task~1.2: where does the program wait now?
+
+\medskip\emph{Assignment 1 (the ultrasound sensor) is described on the lecture slides.}
+
+\subsection*{Assignment 2: LED Brightness from the PC}
+Receive bytes from the PC with \code{UART.onReceive()} and use each byte as the
+brightness of LED D3: \code{Timer0} in \code{TIMER\_FAST\_PWM} mode with
+\code{PWM\_INVERTING}, and \code{Timer0.setCompare(byte)} in your receive function.
+
+\subsection*{Assignment 3: Measurements on Command}
+The PC sends a command of \textbf{two bytes}: the first byte is the
+\emph{number} of measurements, the second byte is the \emph{time} between them
+in milliseconds. The board then measures the potentiometer this number of
+times and sends every value back with \code{UART.println()}.
+\begin{itemize}
+  \item Receive the two bytes with \code{UART.onReceive()}. Store them in
+        \code{volatile} variables and set a \code{volatile} flag when both bytes
+        have arrived.
+  \item In \code{main()}, when the flag is set, do the measurements. (Here the main loop
+        is not empty: long work does not belong in an interrupt function.)
+\end{itemize}
+
+\end{document}
