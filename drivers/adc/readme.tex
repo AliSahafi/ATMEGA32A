@@ -67,8 +67,11 @@ $104\,\mu$s.
 
 \section{How to use the driver}
 
-The driver gives you one object: \code{ADC}. You start it once with
-\code{ADC.begin()}, then you read a channel whenever you need a value.
+The driver gives you one object: \code{ADC}. First you switch the ADC on one
+time with \code{ADC.enable()}. This does not measure anything yet. Then you
+call \code{ADC.read()} every time you need a new value: each call makes one
+measurement. When you do not need the ADC any more, \code{ADC.disable()}
+switches it off again, so it uses no power.
 
 \subsection*{Functions}
 
@@ -78,8 +81,11 @@ The driver gives you one object: \code{ADC}. You start it once with
 \toprule
 \textbf{Function} & \textbf{What it does} \\
 \midrule
-\code{ADC.begin()} & Switch the ADC on. Reference = AREF (5\,V on our board). The driver chooses the ADC
-       clock from \code{F\_CPU} (8\,MHz / 64 = 125\,kHz) \\
+\code{ADC.enable()} & Switch the ADC on (bit \code{ADEN} = \emph{ADC Enable}). It does not measure.
+       Reference = AREF (5\,V on our board). The driver chooses the ADC clock from \code{F\_CPU}
+       (8\,MHz / 64 = 125\,kHz) \\
+\code{ADC.disable()} & Switch the ADC off (\code{ADEN} = 0). It then uses no power. While it is off,
+       every read returns 0 \\
 \code{ADC.read(channel)} & Measure the voltage on \code{PA}\emph{channel} (channel 0--7) and return
        0--1023. It waits until the conversion is finished (about $104\,\mu$s) \\
 \code{ADC.read8(channel)} & The same, but only the upper 8 bits: 0--255. Good for LEDs and PWM \\
@@ -109,8 +115,9 @@ these steps for you:
 \toprule
 \textbf{Driver function} & \textbf{Registers} \\
 \midrule
-\code{ADC.begin()} & \code{ADMUX = 0;} \quad (\code{REFS1:0} = 00: AREF; \code{ADLAR} = 0) \\
+\code{ADC.enable()} & \code{ADMUX = 0;} \quad (\code{REFS1:0} = 00: AREF; \code{ADLAR} = 0) \\
                    & \code{ADCSRA = (1<{}<ADEN) | (1<{}<ADPS2) | (1<{}<ADPS1);} \quad (prescaler 64 at 8\,MHz) \\
+\code{ADC.disable()} & \code{ADCSRA \&= \textasciitilde(1<{}<ADEN);} \\
 \code{ADC.read(0)} & \code{DDRA \&= \textasciitilde(1<{}<PA0); PORTA \&= \textasciitilde(1<{}<PA0);} \quad (input, no pull-up) \\
                    & \code{ADMUX = (ADMUX \& 0xE0) | 0;} \quad (\code{MUX4:0} = channel) \\
                    & \code{ADCSRA |= (1<{}<ADSC); while (ADCSRA \& (1<{}<ADSC));} \\

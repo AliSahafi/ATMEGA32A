@@ -16,7 +16,7 @@
 
 int main() {
   UART.begin(9600);
-  ADC.begin(); // reference AREF = 5 V, ADC clock 125 kHz
+  ADC.enable(); // reference AREF = 5 V, ADC clock 125 kHz
 
   while (true) {
     uint16_t value = ADC.read(0);             // 0..1023

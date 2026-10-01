@@ -278,7 +278,8 @@ One ready-made object: `ADC`. Channels 0–7 are the pins `PA0`–`PA7`; the boa
 
 | Method | Description |
 |---|---|
-| `ADC.begin()` | Switch the ADC on. Reference = AREF (5 V on the course board), ADC clock chosen from `F_CPU` (8 MHz / 64 = 125 kHz) |
+| `ADC.enable()` | Switch the ADC on (it does not measure). Reference = AREF (5 V on the course board), ADC clock chosen from `F_CPU` (8 MHz / 64 = 125 kHz) |
+| `ADC.disable()` | Switch the ADC off (saves power). While it is off, every read returns 0 |
 | `ADC.read(channel)` | Measure `PA<channel>` and return 0–1023 (waits about 104 µs). The pin is made an input without pull-up for you |
 | `ADC.read8(channel)` | The same, upper 8 bits only: 0–255 — for LEDs and PWM |
 | `ADC.readMillivolts(channel)` | The same, in millivolts: 0–4995 mV |
@@ -292,7 +293,7 @@ One ready-made object: `ADC`. Channels 0–7 are the pins `PA0`–`PA7`; the boa
 #include "drivers/gpio/gpio.hpp"
 
 int main() {
-  ADC.begin();
+  ADC.enable();
   GPIO.setDirection(PORTB, ALL, OUTPUT);
 
   while (true) {

@@ -6,15 +6,18 @@
  *
  * Quick usage (call these on the shared `ADC` object below):
  *
- *   ADC.begin();              // reference = AREF (5 V on the course board),
+ *   ADC.enable();             // switch the ADC on (it does not measure yet):
+ *                             // reference = AREF (5 V on the course board),
  *                             // ADC clock 50..200 kHz, chosen from F_CPU
+ *   ADC.disable();            // switch the ADC off (saves power)
  *
  *   ADC.read(0);              // channel 0..7 = PA0..PA7 -> 0..1023 (10-bit)
  *   ADC.read8(0);             // -> 0..255 (upper 8 bits), for LEDs and PWM
  *   ADC.readMillivolts(0);    // -> 0..4995 mV
  *
  * Every read waits for one conversion (about 100 us at 8 MHz). The driver
- * makes the pin an input without pull-up for you.
+ * makes the pin an input without pull-up for you. While the ADC is off
+ * (before enable() or after disable()), every read returns 0.
  *
  * The potentiometer of the course board is on PA0 (channel 0).
  * On the course board VCC, AVCC and AREF are all connected to +5 V, so the
@@ -43,14 +46,21 @@ public:
   // Switch the ADC on: reference = AREF, result right-adjusted (10-bit),
   // ADC clock = F_CPU / prescaler, the smallest prescaler that gives
   // 200 kHz or less (8 MHz / 64 = 125 kHz).
-  static inline void begin() {
+  static inline void enable() {
     ADMUX = 0; // REFS1:0 = 00 -> AREF, ADLAR = 0, channel 0
     ADCSRA = (1 << ADEN) | prescalerBits();
   }
 
+  // Switch the ADC off (ADEN = 0). It then uses no power. Call enable() to
+  // switch it on again.
+  static inline void disable() { ADCSRA &= ~(1 << ADEN); }
+
   // Measure the voltage on PA<channel> and return 0..1023.
   // value = Vin * 1024 / Vref  (0 V -> 0, 2.5 V -> 512, 5 V -> 1023)
+  // Returns 0 if the ADC is off (a conversion can not start then).
   static inline uint16_t read(uint8_t channel) {
+    if (!(ADCSRA & (1 << ADEN)))
+      return 0;
     channel &= 0x07;
     DDRA &= ~(1 << channel);  // pin = input
     PORTA &= ~(1 << channel); // no pull-up (it would change the voltage)
