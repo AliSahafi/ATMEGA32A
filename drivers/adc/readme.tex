@@ -6,6 +6,7 @@
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{xcolor}
+\usepackage{textcomp}
 \usepackage{listings}
 \usepackage[hidelinks]{hyperref}
 
@@ -179,6 +180,39 @@ Use the potentiometer to set the brightness of LED \textbf{D3}
         the value with \code{Timer0.setCompare()}.
 \end{enumerate}
 Now the potentiometer works like a light dimmer.
+
+\subsection*{Task 3: LM35 Thermometer on the UART (25 min)}
+The \textbf{LM35} is an analog temperature sensor. Its output voltage is
+\textbf{10\,mV per \textdegree C}, starting at 0\,mV for 0\,\textdegree C:
+\[ T\,[\text{\textdegree C}] = \frac{V_{\text{OUT}}\,[\text{mV}]}{10}
+   \qquad\text{for example}\quad 250\,\text{mV} \;\rightarrow\; 25.0\,\text{\textdegree C} \]
+
+\textbf{Wiring.} Hold the LM35 with the flat side (text) to you, pins down.
+From left to right:
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{LM35 pin} & \textbf{Name} & \textbf{Board} \\
+\midrule
+1 (left)   & $+V_S$         & +5\,V \\
+2 (middle) & $V_{\text{OUT}}$ & \code{IO\_PA1} = \code{PA1} = \textbf{ADC1} \\
+3 (right)  & GND            & GND \\
+\bottomrule
+\end{tabular}
+\end{center}
+Check the wiring two times before you switch on: if $+V_S$ and GND are
+swapped, the sensor gets hot. \code{PA0} is used by the potentiometer, so we
+use channel 1.
+
+\begin{enumerate}
+  \item Measure the sensor voltage with \code{ADC.readMillivolts(1)}.
+  \item Calculate the temperature: whole degrees \code{mv / 10} and the
+        tenths \code{mv \% 10}.
+  \item Send it to the PC with the UART (9600 baud) one time per second, for
+        example \code{T = 23.4 C}.
+  \item Hold the sensor between your fingers. How fast does the temperature
+        go up? How high does it go?
+\end{enumerate}
 
 \subsection*{Assignment: Find the Cross Voltage}
 The pin \code{PA0} can be read in two ways: as an \emph{analog} value with the
