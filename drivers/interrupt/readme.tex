@@ -193,11 +193,29 @@ Show the potentiometer on the LEDs, using the ADC interrupt instead of waiting:
         (\code{value >{}> 2}, active-low), then start the next conversion with
         \code{ADC.start(0)}.
 \end{enumerate}
+\textbf{Hint:} do not use \code{ADC.read()}, \code{ADC.read8()} or
+\code{ADC.readMillivolts()}: they are \emph{polling} (they start a conversion and
+wait until it is finished).
 
 \subsection*{Task 3: UART Receive Interrupt}
 Show every byte that the PC sends on the LEDs on \code{PORTB}. Give your
 function to \code{UART.onReceive()}: it gets the received byte. Compare with
 Lesson~6, Task~1.2: where does the program wait now?
+
+\subsection*{Task 4: Potentiometer Logger (Timer + ADC Interrupts)}
+Measure the potentiometer (\code{PA0}) \emph{exactly} one time per second and
+send the voltage in millivolts to the PC with the UART (9600 baud), for
+example \code{U = 2500 mV}.
+\begin{itemize}
+  \item A \textbf{timer interrupt} decides \emph{when} to measure. Which timer,
+        mode, prescaler and compare value give you 1 second?
+  \item The \textbf{ADC interrupt} gives you the value 0--1023. \textbf{Hint:} do not use
+        \code{ADC.read()}, \code{ADC.read8()} or \code{ADC.readMillivolts()}:
+        they are \emph{polling} (they wait for the conversion). Calculate the millivolts yourself, in the same way as
+        \code{readMillivolts()} does (see the ADC handout).
+  \item Sending text takes milliseconds: do not send from an interrupt function.
+        Here the main loop is not empty: it only sends.
+\end{itemize}
 
 \medskip\emph{Assignment 1 (the ultrasound sensor) is described on the lecture slides.}
 
